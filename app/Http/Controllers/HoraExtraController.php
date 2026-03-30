@@ -302,16 +302,60 @@ class HoraExtraController extends Controller
     }
 
     // Getion de firmas 
-    public function gestion()
-    {
-        // Cargamos la relación 'empleado' que definiste en tu modelo
-        $solicitudes = HoraExtra::with(['empleado', 'detalles'])->get();
-        
-        $pasosConfigurados = DB::table('flujo_firmas_config')
-                                ->where('activo', 1)
-                                ->orderBy('id', 'asc')
-                                ->get();
+   public function gestion()
+  {
+    $user = auth()->user();
+    $empleadoLogueado = $user->empleado;
 
-        return view('horas_extras.gestion', compact('solicitudes', 'pasosConfigurados'));
+    // 1. Cargamos las solicitudes con sus relaciones
+    $query = HoraExtra::with(['empleado.departamento', 'detalles']);
+
+    // 2. LÓGICA DE ACCESO TOTAL (Dirección, GTH, Admin)
+    $tieneAccesoTotal = false;
+
+    if ($user->rol) {
+      // Convertimos el nombre a Mayúsculas y quitamos tildes para comparar
+      $nombreRol = strtoupper(str_replace(['á', 'é', 'í', 'ó', 'ú', 'Á', 'É', 'Í', 'Ó', 'Ú'], 
+      ['A', 'E', 'I', 'O', 'U', 'A', 'E', 'I', 'O', 'U'], 
+        $user->rol->nombre));
+
+      if ($user->hasRole('Administrador') || 
+        $user->hasRole('GTH') || 
+        str_contains($nombreRol, 'DIRECCION')) {
+          $tieneAccesoTotal = true;
+        }
     }
+
+    // 3. APLICAR FILTROS
+    if (!$tieneAccesoTotal) {
+        $query->where(function($q) use ($empleadoLogueado) {
+            // El empleado común solo ve las suyas
+            $q->where('empleado_id', $empleadoLogueado->id);
+
+            // Si es jefe, también ve las de su departamento
+            $deptoDondeEsJefe = \DB::table('departamentos')
+                ->where('jefe_empleado_id', $empleadoLogueado->id)
+                ->first();
+
+            if ($deptoDondeEsJefe) {
+                $q->orWhereHas('empleado', function($subQuery) use ($deptoDondeEsJefe) {
+                    $subQuery->where('departamento_id', $deptoDondeEsJefe->id);
+                });
+            }
+        });
+    }
+ 
+   // 4. Obtener resultados con ORDEN JERÁRQUICO
+    $solicitudes = $query->orderBy('paso_actual', 'desc')
+                         ->orderBy('created_at', 'desc')
+                         ->get();
+    
+    // Pasos para las "bolitas" de la vista
+    $pasosConfigurados = \DB::table('flujo_firmas_config')
+                            ->where('activo', 1)
+                            ->orderBy('id', 'asc')
+                            ->get();
+
+    return view('horas_extras.gestion', compact('solicitudes', 'pasosConfigurados'));
+  }
 }
