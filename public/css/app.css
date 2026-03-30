@@ -19,7 +19,7 @@ body {
    NAVBAR / BARRA DE NAVEGACIÓN
    =========================== */
 .navbar-ihci {
-    background: white;                     /* Fondo blanco para navbar */
+    background: rgb(7, 26, 63);               /* Fondo azul para navbar */
     border-bottom: 3px solid var(--ihci-blue); /* Línea azul inferior */
     padding: 0.5rem 1rem;                  /* Espaciado interno */
 }
@@ -50,6 +50,16 @@ body {
     top: -10px;            /* Ajuste vertical visual */
     z-index: 1010;         /* Siempre encima de otros elementos */
     transition: transform 0.3s ease; /* Animación suave para efectos futuros */
+
+     /* ===========================
+       ESTILOS PARA REDONDEAR (NUEVO)
+       =========================== */
+    border-radius: 20%;    /* Hace la imagen circular */
+    object-fit: cover;     /* Asegura que el logo no se estire dentro del círculo */
+    background-color: #ffffff; /* Fondo blanco para que el logo resalte sobre el azul */
+    padding: 5px;          /* Espacio entre el borde del círculo y el logo */
+    box-shadow: 0px 2px 8px rgba(0,0,0,0.3); /* Sombra suave para dar profundidad */
+    border: 2px solid #001a35; /* Borde sutil del color del header azul oscuro */
 }
 
 /* ===========================
@@ -66,7 +76,7 @@ body {
 .menu-item {
     position: relative;    /* Para submenú absoluto */
     font-weight: 600;      /* Texto semi-negrita */
-    color: var(--ihci-blue); /* Color azul institucional */
+    color:#ffffff;        /* Color azul institucional */
     cursor: pointer;       /* Cursor de mano */
     padding: 10px 5px;     /* Espaciado interno */
     transition: color 0.3s; /* Animación de color al hover */
