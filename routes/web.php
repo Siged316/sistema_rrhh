@@ -164,6 +164,12 @@ Route::middleware(['auth', 'force.password.change'])->group(function () {
     Route::post('/firmas', [FirmaController::class, 'store'])->name('firmas.store');
     Route::delete('/firmas/{id}', [FirmaController::class, 'destroy'])->name('firmas.destroy');
     
+     // --- MÓDULO: Perfil ---
+    Route::get('/perfil', [PerfilController::class, 'index'])->name('perfil.index');
+    Route::put('/perfil/update-datos', [PerfilController::class, 'updateDatos'])->name('perfil.update.datos');
+    Route::put('/perfil/password', [PerfilController::class, 'updatePassword'])->name('perfil.update.password');
+
+    
     // Redirección si ya está logueado
     Route::get('/', function () {
        return Auth::check() ? redirect()->route('dashboard') : redirect()->route('login');
