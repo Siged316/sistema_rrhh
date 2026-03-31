@@ -54,12 +54,8 @@ body {
      /* ===========================
        ESTILOS PARA REDONDEAR (NUEVO)
        =========================== */
-    border-radius: 20%;    /* Hace la imagen circular */
+     border-radius: 20%;    /* Hace la imagen circular */
     object-fit: cover;     /* Asegura que el logo no se estire dentro del círculo */
-    background-color: #ffffff; /* Fondo blanco para que el logo resalte sobre el azul */
-    padding: 5px;          /* Espacio entre el borde del círculo y el logo */
-    box-shadow: 0px 2px 8px rgba(0,0,0,0.3); /* Sombra suave para dar profundidad */
-    border: 2px solid #001a35; /* Borde sutil del color del header azul oscuro */
 }
 
 /* ===========================
