@@ -164,7 +164,7 @@
           // Si hay errores de clave o éxito de clave, abrimos el de Password
           var modalPass = new bootstrap.Modal(document.getElementById('modalPassword'));
           modalPass.show();
-       @elseif (session('success_datos') || $errors->any())
+       @elseif (session('success_datos') || $errors->has('primer_nombre') || $errors->has('primer_apellido') || ($errors->any() && !old('codigo_empleado'))) // Usamos bags de error o comprobamos campos específicos del perfil para no chocar con el registro
           // Si hay éxito de datos o cualquier otro error, abrimos Datos
           var modalDatos = new bootstrap.Modal(document.getElementById('modalDatos'));
           modalDatos.show();
