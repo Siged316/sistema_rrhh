@@ -28,13 +28,12 @@
            @endif
 
             <div class="table-responsive">
-                <table class="table table-hover align-middle">
-                    <thead>
+                <table class="table table-bordered table-hover align-middle shadow-sm">
                         <tr>
-                            <th>ID</th>
-                            <th>Departamento</th>
-                            <th>Descripción</th>
-                            <th>Jefe</th>
+                            <th class="text-center">ID</th>
+                            <th class="text-center">Departamento</th>
+                            <th class="text-center">Descripción</th>
+                            <th class="text-center">Jefe</th>
                             <th class="text-center">Acciones</th>
                         </tr>
                     </thead>
@@ -42,13 +41,13 @@
                         @foreach($departamentos as $dep)
                         <tr>
                             <td>#{{ $dep->id }}</td>
-                            <td class="fw-bold">{{ $dep->nombre }}</td>
+                            <td>{{ $dep->nombre }}</td>
                             <td>{{ $dep->descripcion }}</td>
                             <td>{{ $dep->jefeEmpleado?->nombre ?? '' }} {{ $dep->jefeEmpleado?->apellido ?? '' }}</td>
                             <td class="text-center">
                                 <!-- Botón Editar -->
  <button type="button"
-                                        class="btn btn-sm btn-outline-warning btn-edit-departamento"
+                                        class="btn btn-sm btn-outline-primary btn-edit-departamento"
                                         data-id="{{ $dep->id }}"
                                         data-nombre="{{ $dep->nombre }}"
                                         data-descripcion="{{ $dep->descripcion }}"
