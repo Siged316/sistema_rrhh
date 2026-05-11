@@ -6,7 +6,7 @@
         {{-- Formulario de Carga --}}
         <div class="col-lg-4">
             <div class="card border-0 shadow-sm h-100">
-                <div class="card-header bg-dark text-white py-3">
+                <div class="card-header modal-header text-white py-2">
                     <h5 class="card-title mb-0"><i class="fas fa-pen-nib me-2"></i>Registrar Nueva Firma</h5>
                 </div>
                 <div class="card-body p-4">
@@ -30,7 +30,7 @@
                             </div>
                         </div>
 
-                        <button type="submit" class="btn btn-primary btn-lg w-100 shadow-sm mt-2 fw-bold">
+                        <button type="submit" class="btn text-white rounded-pill px-4" style="background-color: #054084;">
                             <i class="fas fa-save me-2"></i>Guardar Firma
                         </button>
                     </form>
@@ -42,9 +42,9 @@
         <div class="col-lg-8">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-header bg-white py-3">
-                    <div class="row align-items-center">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-3">
                         <div class="col-md-6">
-                            <h5 class="card-title mb-0 text-dark fw-bold">Firmas Registradas</h5>
+                            <h5 class="card-title mb-0 text-white fw-bold">Firmas Registradas</h5>
                         </div>
                         <div class="col-md-6">
                             {{-- BUSCADOR EN TIEMPO REAL --}}
@@ -57,7 +57,7 @@
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
-                        <table class="table table-hover align-middle mb-0" id="firmasTable">
+                        <table class="table table-bordered table-hover align-middle shadow-sm" id="firmasTable">
                             <thead class="table-light sticky-top">
                                 <tr>
                                     <th class="ps-4 py-3">Empleado</th>
@@ -97,11 +97,13 @@
                                     <td class="pe-4 text-end">
                                       <div class="d-inline-flex align-items-center gap-2">
                                          {{-- Botón para Modificar --}}
-                                          <button type="button" class="btn btn-outline-primary btn-sm rounded-circle" 
+                                          <button type="button" 
+                                             class="btn btn-sm rounded-circle" 
+                                              style="color: #003366; border-color: #003366;"
                                               onclick="prepararModificacion('{{ $f->empleado_id }}')" 
-                                               title="Cambiar Firma">
+                                              title="Cambiar Firma">
                                                <i class="fas fa-sync-alt"></i>
-                                           </button>
+                                            </button>
 
                                            {{-- Botón para Eliminar (Formulario Inline) --}}
                                            <form action="{{ route('firmas.destroy', $f->id) }}" method="POST" class="d-inline">
