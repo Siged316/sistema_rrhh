@@ -12,7 +12,7 @@
         </h2>
 
         <div class="d-flex gap-2">
-            <button class="btn btn-dark px-4 shadow-sm fw-bold"
+            <button class="btn btn-primary px-4 shadow-sm fw-bold"
                     type="button"
                     data-bs-toggle="offcanvas"
                     data-bs-target="#offcanvasNuevoEmpleado">
@@ -57,7 +57,7 @@
                 <table class="table align-middle tabla-personalizada">
                     <thead>
                         <tr class="text-center">
-                            <th style="width: 60px;">ID</th>
+                            <th style="width: 60px;">Código/DNI</th>
                             <th class="text-start">Empleado</th>
                             <th class="text-start">Contacto</th>
                             <th class="text-start">Cargo y Departamento</th>
@@ -71,7 +71,16 @@
                     <tbody>
                         @forelse($empleados as $empleado)
                         <tr>
-                            <td class="text-center text-muted fw-bold">#{{ $empleado->id }}</td>
+                            <td class="ps-3">
+                              {{-- Código de Empleado Principal --}}
+                              <div class="fw-bold text-primary" style="font-size: 0.85rem;">
+                                 <i class="fa-solid fa-id-badge me-1"></i>{{ $empleado->codigo_empleado ?? 'S/C' }}
+                               </div>
+                              {{-- DNI en secundario para no amontonar --}}
+                              <div class="text-muted" style="font-size: 0.75rem;">
+                                  <i class="fa-solid fa-fingerprint me-1"></i>{{ $empleado->dni ?? '0000-0000-00000' }}
+                               </div>
+                           </td>
 
                             {{-- Celda: Empleado (CAMBIADO A NEGRO NORMAL) --}}
                             <td>
@@ -159,11 +168,11 @@
                             {{-- Celda: Acciones --}}
                             <td class="text-center">
                                 <div class="btn-group shadow-sm bg-white rounded">
-                                    <button type="button" class="btn btn-outline-warning btn-sm" data-bs-toggle="modal" data-bs-target="#modalEditarEmpleado{{ $empleado->id }}">
+                                    <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalEditarEmpleado{{ $empleado->id }}">
                                         <i class="fa-solid fa-pen-to-square"></i>
                                     </button>
 
-                                    <button type="button" class="btn btn-outline-primary btn-sm" 
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" 
                                             onclick="confirmarEstado('{{ $empleado->id }}', '{{ $empleado->nombre }}', '{{ $empleado->estado }}')"
                                             title="Cambiar Estado">
                                         <i class="fa-solid fa-power-off"></i>
