@@ -1,9 +1,15 @@
 <?php
 
+// Namespace donde se encuentra el controlador
 namespace App\Http\Controllers;
 
+// Manejo de solicitudes HTTP
 use Illuminate\Http\Request;
+
+// Modelo de firmas
 use App\Models\Firma;
+
+// Modelo de empleados
 use App\Models\Empleado;
 
 
@@ -39,6 +45,7 @@ class FirmaController extends Controller
     {
         // Validación de datos del formulario
         $request->validate([
+
             // El empleado debe existir en la tabla empleados
             'empleado_id' => 'required|exists:empleados,id',
 
@@ -54,10 +61,16 @@ class FirmaController extends Controller
         // - Si ya existe una firma con ese empleado_id → la actualiza
         // - Si no existe → crea una nueva
         Firma::updateOrCreate(
-            ['empleado_id' => $request->empleado_id], // Condición de búsqueda
+
+            // Condición de búsqueda
+            ['empleado_id' => $request->empleado_id],
+
             [
-                'imagen_path' => $binario, // Imagen en binario
-                'activo' => 1              // Se marca como activa
+                // Imagen almacenada en binario
+                'imagen_path' => $binario,
+
+                // Estado activo
+                'activo' => 1
             ]
         );
 
@@ -92,6 +105,8 @@ class FirmaController extends Controller
 
               return back()->with(
                   'error_integridad',
+
+                  // Mensaje indicando que la firma está relacionada con registros existentes
                   'No se puede eliminar esta firma porque ya está asociada a solicitudes de permisos existentes.'
               );
           }
