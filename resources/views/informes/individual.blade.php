@@ -57,6 +57,7 @@
                             <div class="col-md-2 d-none" id="div_anio">
                                 <label class="form-label fw-bold text-dark">4. Año</label>
                                 <select class="form-select form-select-lg border-2 shadow-sm" name="anio" id="anio_valor">
+                                   <option value="" selected disabled>Elija...</option>
                                     @foreach($anios as $a)
                                         <option value="{{ $a }}">{{ $a }}</option>
                                     @endforeach
@@ -67,6 +68,7 @@
                             <div class="col-md-2 d-none" id="div_mes">
                                 <label class="form-label fw-bold text-dark">5. Mes</label>
                                 <select class="form-select form-select-lg border-2 shadow-sm" name="mes" id="mes_valor">
+                                    <option value="" selected disabled>Elija...</option>
                                     <option value="01">Enero</option><option value="02">Febrero</option>
                                     <option value="03">Marzo</option><option value="04">Abril</option>
                                     <option value="05">Mayo</option><option value="06">Junio</option>
