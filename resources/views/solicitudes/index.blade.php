@@ -1,7 +1,7 @@
-{{-- Extiende el layout principal de la aplicación --}}
 @extends('layouts.app')
 
 @section('content')
+
 <div class="container mt-4 mb-5">
 
     {{-- ENCABEZADO --}}
@@ -28,18 +28,18 @@
                         </div>
                     </div>
 
-                    {{-- Filtrar por Mes --}}
-                  <div class="col-md-3">
-                      <label class="form-label small fw-bold">MES</label>
-                      <select name="mes" class="form-select" onchange="this.form.submit()">
-                         <option value="">Todos</option>
-                          @foreach(['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'] as $index => $mes)
-                             <option value="{{ $index + 1 }}" {{ request('mes') == ($index + 1) ? 'selected' : '' }}>
-                                 {{ $mes }}
-                              </option>
-                          @endforeach
-                      </select>
-                   </div>
+                   {{-- Filtrar por Mes --}}
+<div class="col-md-3">
+    <label class="form-label small fw-bold">MES</label>
+    <select name="mes" class="form-select" onchange="this.form.submit()">
+        <option value="">Todos</option>
+        @foreach(['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'] as $index => $mes)
+            <option value="{{ $index + 1 }}" {{ request('mes') == ($index + 1) ? 'selected' : '' }}>
+                {{ $mes }}
+            </option>
+        @endforeach
+    </select>
+</div>
 
                     {{-- Botones --}}
                     <div class="col-md-2">
@@ -57,14 +57,14 @@
     <div class="card shadow-sm border-0 overflow-hidden" style="border-radius:15px;">
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table align-middle mb-0">
-                    <thead class="bg-light">
-                        <tr class="text-center">
-                            <th class="text-start ps-4">Empleado / Cargo</th>
-                            <th class="text-start">Tipo</th>
-                            <th>Periodo</th>
-                            <th>Estado</th>
-                            <th>Acciones</th>
+                <table class="table table-bordered table-hover align-middle shadow-sm">
+                    <thead>
+                      <tr class="text-center">
+                          <th class="bg-primary text-white">Empleado / Cargo</th>
+                          <th class="bg-primary text-white">Tipo</th>
+                          <th class="bg-primary text-white">Periodo</th>
+                          <th class="bg-primary text-white">Estado</th>
+                          <th class="bg-primary text-white">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -187,15 +187,9 @@
                                                </div>
                                            </div>
 
-                                           <div class="small mt-1 text-muted text-center">
-                                              JEFE → GTH
-                                           </div>
+                                           
 
-                                           <div class="progress mt-2" style="height: 6px; width: 100px; background-color: #e9ecef; border-radius: 10px;">
-                                               <div class="progress-bar bg-{{ $color }} progress-bar-striped progress-bar-animated" 
-                                                  role="progressbar" style="width: {{ $progreso }}"></div>
-                                              </div>
-                                          </div>
+                                           
                                       </div>
                                    </div>
                                 </td>
@@ -385,7 +379,7 @@ function ejecutarAccion(id, estado) {
 
 <script>
 
-    document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function() {
     const picker = flatpickr("#rango_fechas", {
         mode: "range",
         dateFormat: "d/m/Y", // Formato que enviamos al controlador
@@ -406,5 +400,7 @@ function ejecutarAccion(id, estado) {
         picker.open();
     });
 });
+
 </script>
+
 @endsection
