@@ -159,31 +159,82 @@
         divMes.style.visibility = (periodo === 'anual') ? 'hidden' : 'visible';
     }
 
-    // Función que se activará cuando hagamos la lógica
-    function descargar(tipo) {
-    // Captura de valores
-    const depto = document.getElementById('departamento_id').value;
-    const periodo = document.getElementById('periodo').value;
-    const anio = document.getElementById('anio_valor').value;
-    const mes = document.getElementById('mes_valor').value;
+    function actualizarInterfaz() {
+        const periodo = document.getElementById('periodo').value;
+        const divAnio = document.getElementById('div_anio');
+        const divMes = document.getElementById('div_mes');
 
-    // Validación básica
-    if (!depto || !periodo) {
-        Swal.fire('Atención', 'Debe seleccionar departamento y período.', 'warning');
-        return;
+        if (periodo === 'mensual') {
+            divAnio.classList.remove('d-none');
+            divMes.classList.remove('d-none');
+        } else if (periodo === 'anual') {
+            divAnio.classList.remove('d-none');
+            divMes.classList.add('d-none');
+        } else {
+            divAnio.classList.add('d-none');
+            divMes.classList.add('d-none');
+        }
     }
 
-    // Definimos la base de la ruta según el tipo seleccionado
-    let rutaBase = (tipo === 'pdf') 
-        ? "{{ route('informes.pdf') }}" 
-        : "{{ route('informes.excel') }}";
+    // Función que se activará cuando hagamos la lógica
+    async function descargar(tipo) {
+        // 1. Captura de valores
+        const depto = document.getElementById('departamento_id').value;
+        const periodo = document.getElementById('periodo').value;
+        const anio = document.getElementById('anio_valor').value;
+        const mes = document.getElementById('mes_valor').value;
 
-    // Construimos la URL con los parámetros capturados
-    const url = `${rutaBase}?departamento_id=${depto}&periodo=${periodo}&anio=${anio}&mes=${mes}`;
+        // 2. Validación de campos vacíos en el cliente
+        if (!depto || !periodo || !anio) {
+            Swal.fire('Atención', 'Debe seleccionar departamento, período y año.', 'warning');
+            return;
+        }
+        if (periodo === 'mensual' && !mes) {
+            Swal.fire('Atención', 'Debe seleccionar un mes para el reporte mensual.', 'warning');
+            return;
+        }
+
+        // 3. Alerta de carga
+        Swal.fire({
+            title: 'Verificando datos...',
+            text: 'Espere un momento mientras consultamos los registros.',
+            allowOutsideClick: false,
+            didOpen: () => { Swal.showLoading(); }
+        });
+
+        try {
+            // 4. Petición AJAX al método validarDatos de tu ReporteController
+            const response = await fetch(`{{ route('informes.validar') }}?departamento_id=${depto}&periodo=${periodo}&anio=${anio}&mes=${mes}`);
+            const resultado = await response.json();
+
+            // 5. Lógica de decisión según el conteo
+            if (resultado.count > 0) {
+                Swal.close(); // Cerramos el cargando
+
+                let rutaBase = (tipo === 'pdf') 
+                    ? "{{ route('informes.pdf') }}" 
+                    : "{{ route('informes.excel') }}";
+
+                // Construimos la URL final
+                const url = `${rutaBase}?departamento_id=${depto}&periodo=${periodo}&anio=${anio}&mes=${mes}`;
+                
+                // Iniciamos la descarga real
+                window.location.href = url;
+            } else {
+                // Si count es 0, mostramos alerta y NO descargamos
+                Swal.fire({
+                    icon: 'info',
+                    title: 'Sin registros',
+                    text: 'No existen evaluaciones para el departamento y período seleccionado.',
+                    confirmButtonColor: '#003366'
+                });
+            }
+        } catch (error) {
+            console.error(error);
+            Swal.fire('Error', 'Hubo un problema al conectar con el servidor.', 'error');
+        }
+    }
     
-    // Iniciamos la descarga
-    window.location.href = url;
-}
-
+   
 </script>
 @endsection

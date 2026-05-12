@@ -538,6 +538,9 @@ Route::prefix('informes')->middleware(['auth'])->group(function () {
     Route::get('/excel', [ReporteController::class, 'generarExcel'])
         ->name('informes.excel');
 
+    //Validar datos general si no hubiera.
+    Route::get('/informes/validar', [ReporteController::class, 'validarDatos'])->name('informes.validar');
+
     // Informe individual
     Route::get('/individual', [ReporteController::class, 'individual'])
         ->name('informes.individual');

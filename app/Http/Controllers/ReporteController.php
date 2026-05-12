@@ -150,6 +150,22 @@ class ReporteController extends Controller
     }
 
 
+    // Método para validar si existen datos antes de descargar
+    public function validarDatos(Request $request) {
+     $query = DB::table('asignacion_evaluaciones as ae')
+        ->join('empleados as e', 'ae.empleado_id', '=', 'e.id')
+        ->where('e.departamento_id', $request->departamento_id)
+        ->whereYear('ae.created_at', $request->anio);
+
+     if ($request->periodo === 'mensual' && $request->mes) {
+         $query->whereMonth('ae.created_at', $request->mes);
+        }
+
+     $total = $query->count();
+
+     return response()->json(['count' => $total]);
+    }
+
     // ==============================
     // REPORTES INDIVIDUALES
     // ==============================
@@ -247,4 +263,6 @@ class ReporteController extends Controller
         // Mensaje temporal
         return "Próximamente: Informe de Compensatorio";
     }
+
+
 }
