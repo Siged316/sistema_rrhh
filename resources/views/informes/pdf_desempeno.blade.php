@@ -91,7 +91,7 @@
 
     <div class="firmas">
         <br><br><br>
-        <div class="espacio-firma">Firma Jefatura de {{ $departamento->nombre }}</div>
+        
         <div class="espacio-firma">Sello Gerencia de Talento Humano</div>
     </div>
 
