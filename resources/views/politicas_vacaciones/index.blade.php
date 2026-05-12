@@ -56,7 +56,7 @@
 
                     {{-- Tabla de políticas --}}
                     <div class="table-responsive mt-4">
-                        <table class="table table-hover align-middle border">
+                        <table class="table table-bordered table-hover align-middle shadow-sm">
                             <thead class="table-light">
                                 <tr>
                                     <th class="ps-4">TIPO DE CONTRATO</th>
@@ -328,5 +328,6 @@
 
 {{-- Fin de la sección content --}}
 @endsection
+
 
 
