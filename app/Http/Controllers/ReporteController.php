@@ -9,8 +9,9 @@ use App\Models\Departamento;                        // Modelo de departamentos
 use App\Models\Empleado;                           // Modelo de empleados
 use Barryvdh\DomPDF\Facade\Pdf;                   // Librería DomPDF para generar archivos PDF
 use App\Exports\ExportarDesempenoDepto;          // Clase personalizada para exportar desempeño por departamento en Excel
-use App\Exports\ExportarDesempenoIndividual;    // Clase personalizada para exportar desempeño individual en Excel
+use App\Exports\IndividualExport;              // Clase personalizada para exportar desempeño individual en Excel
 use Maatwebsite\Excel\Facades\Excel;           // Librería Excel para generar archivos .xlsx
+
 
 
 // Controlador encargado de gestionar los reportes del sistema
@@ -250,6 +251,50 @@ class ReporteController extends Controller
             "Evaluacion_{$empleado->nombre}_{$empleado->apellido}.pdf"
         );
     }
+
+public function generarIndividualExcel(Request $request)
+{
+    // 1. Obtener los datos básicos
+    $empleado = Empleado::findOrFail($request->empleado_id);
+    $anio = $request->anio;
+    $periodo = $request->periodo;
+    $mes = $request->mes;
+
+    // 2. Consulta rápida con DB (como la de depto)
+    $query = DB::table('asignacion_evaluaciones as ae')
+        ->leftJoin('proyectos as p', 'ae.proyecto_id', '=', 'p.id')
+        ->select(
+            DB::raw("COALESCE(p.nombre, ae.tipo) as actividad"),
+            'ae.created_at as fecha',
+            'ae.puntuacion_total as resultado'
+        )
+        ->where('ae.empleado_id', $request->empleado_id)
+        ->whereYear('ae.created_at', $anio);
+
+    // 3. Filtro de mes
+    if ($periodo == 'mensual' && $mes) {
+        $query->whereMonth('ae.created_at', $mes);
+        $periodo_texto = "Mensual (" . $mes . ")";
+    } else {
+        $periodo_texto = "Anual Acumulado";
+    }
+
+    $datos = $query->get();
+    $promedio_individual = $datos->avg('resultado') ?? 0;
+
+    // 4. Descarga directa
+    return Excel::download(
+        new IndividualExport($empleado, $datos, $periodo_texto, $anio, $promedio_individual), 
+        "Reporte_Individual_{$empleado->apellido}.xlsx"
+    );
+}
+
+// Función auxiliar para el texto del mes
+private function obtenerNombreMes($mes) {
+    $meses = ['01'=>'Enero','02'=>'Febrero','03'=>'Marzo','04'=>'Abril','05'=>'Mayo','06'=>'Junio',
+              '07'=>'Julio','08'=>'Agosto','09'=>'Septiembre','10'=>'Octubre','11'=>'Noviembre','12'=>'Diciembre'];
+    return $meses[$mes] ?? '';
+}
 
     // 🔹 Placeholder reporte de permisos
     public function permisos() {
