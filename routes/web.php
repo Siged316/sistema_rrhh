@@ -558,9 +558,11 @@ Route::prefix('informes')->middleware(['auth'])->group(function () {
         ->name('informes.permisos');
 
     // Informe compensatorio
-    Route::get('/compensatorio', [ReporteController::class, 'compensatorio'])
-        ->name('informes.compensatorio');
-});
+    Route::get('/compensatorio', [ReporteController::class, 'compensatorio'])->name('informes.compensatorio');
+    Route::get('/compensatorio/pdf', [ReporteController::class, 'pdfCompensatorio'])->name('informes.compensatorio.pdf');
+    Route::get('/compensatorio/excel', [ReporteController::class, 'excelCompensatorio'])->name('informes.compensatorio.excel');
+    Route::get('/validar-compensatorio', [ReporteController::class, 'validarCompensatorio'])->name('validar.compensatorio');
+    });
 
 
 /*

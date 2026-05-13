@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\DB;                    // Facade para realizar co
 use Illuminate\Http\Request;                         // Clase Request para manejar formularios y peticiones HTTP
 use App\Models\Departamento;                        // Modelo de departamentos
 use App\Models\Empleado;                           // Modelo de empleados
+use App\Models\HoraExtra;
+use App\Models\Solicitud;
 use Barryvdh\DomPDF\Facade\Pdf;                   // Librería DomPDF para generar archivos PDF
 use App\Exports\ExportarDesempenoDepto;          // Clase personalizada para exportar desempeño por departamento en Excel
 use App\Exports\IndividualExport;              // Clase personalizada para exportar desempeño individual en Excel
@@ -304,9 +306,96 @@ private function obtenerNombreMes($mes) {
     }
 
     // 🔹 Placeholder reporte compensatorio
-    public function compensatorio() {
+ public function compensatorio()
+{
+    $departamentos = Departamento::all();
+    // Cambia esto:
+    $empleados = Empleado::all(); 
+    $anios = range(date('Y') + 1, date('Y') - 5);
 
-        // Mensaje temporal
-        return "Próximamente: Informe de Compensatorio";
+    return view('informes.compensatorio', compact('departamentos', 'empleados', 'anios'));
+}
+
+public function validarCompensatorio(Request $request) 
+{
+    try {
+        // Forzamos el uso del modelo con su ruta completa para evitar errores de importación
+        $query = \App\Models\HoraExtra::where('empleado_id', $request->empleado_id)
+                                     ->where('estado', 'aprobado');
+
+        // Intentamos usar 'created_at' que es lo más común en Laravel
+        if ($request->periodo === 'anual') {
+            $query->whereYear('created_at', $request->anio);
+        } else {
+            $query->whereYear('created_at', $request->anio)
+                  ->whereMonth('created_at', $request->mes);
+        }
+
+        return response()->json(['count' => $query->count()]);
+
+    } catch (\Exception $e) {
+        // Esto devolverá el error real al navegador para que podamos leerlo
+        return response()->json([
+            'error' => true,
+            'mensaje' => $e->getMessage(),
+            'linea' => $e->getLine()
+        ], 500);
     }
+}
+
+public function pdfCompensatorio(Request $request)
+{
+    $empleadoId = $request->get('empleado_id');
+    $anio = $request->get('anio', date('Y'));
+    $mes = $request->get('mes');
+
+    $empleado = Empleado::with(['departamento'])->findOrFail($empleadoId);
+
+    // 1. Traemos Horas Extras (Usa empleado_id)
+    $movimientos = HoraExtra::where('empleado_id', $empleado->id)
+        ->where('estado', 'aprobado')
+        ->whereYear('created_at', $anio)
+        ->when($mes, function ($query) use ($mes) {
+            return $query->whereMonth('created_at', $mes);
+        })
+        ->get();
+
+    // 2. Traemos Solicitudes (Usa el nombre exacto para evitar errores)
+    // Usamos el nombre tal cual está en la ficha del empleado
+    $nombreExacto = $empleado->nombre . ' ' . $empleado->apellido;
+
+    $solicitudesAprobadas = Solicitud::where('nombre', $nombreExacto)
+        ->where('estado', 'aprobado')
+        ->where('tipo', 'A cuenta de tiempo compensatorio')
+        ->whereYear('fecha_inicio', $anio)
+        ->when($mes, function ($query) use ($mes) {
+            return $query->whereMonth('fecha_inicio', $mes);
+        })
+        ->get();
+
+    // 3. Unimos ambas colecciones y ordenamos cronológicamente
+    $todosLosRegistros = $movimientos->concat($solicitudesAprobadas)->sortBy(function($item) {
+        return $item->fecha ?? $item->fecha_inicio;
+    });
+
+    $pdf = \PDF::loadView('informes.pdf_compensatorio', [
+        'empleado' => $empleado,
+        'anio' => $anio,
+        'todosLosRegistros' => $todosLosRegistros
+    ]);
+
+    return $pdf->setPaper('letter', 'portrait')->stream("Reporte.pdf");
+}
+
+public function excelCompensatorio(Request $request)
+{
+    // Por ahora solo para probar que la ruta existe
+    return "Generando Excel para el empleado ID: " . $request->empleado_id;
+    
+    /* 
+       Más adelante aquí usarás Maatwebsite\Excel 
+       o una lógica similar para el reporte del IHCI 
+    */
+}
+
 }

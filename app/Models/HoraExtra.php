@@ -9,35 +9,36 @@ class HoraExtra extends Model
 {
     use HasFactory;
 
-    // Nombre de la tabla en Workbench
     protected $table = 'horas_extras';
 
-    // Campos que se pueden llenar desde el formulario
     protected $fillable = [
         'empleado_id',
+        'nombre',
+        'departamento_aprobador_id', 
         'lugar',
-        'solicitado_a',
-        'cargo_solicitante',
-        'fecha_inicio',
-        'fecha_fin',
-        'horas_trabajadas',
+        'solicitado_a',              
+        'departamento',
+        'paso_actual',
         'horas_acumuladas',
-        'horas_pagadas',
-        'detalle_actividad',
         'observaciones_jefe',
         'codigo_formato',
+        'horas_pagadas',
         'estado',
         'aprobado_por',
         'fecha_aprobacion'
     ];
 
-    // Relación: Una hora extra pertenece a un empleado
+    /* =========================
+       RELACIONES
+    ========================== */
+
+    // Empleado que realizó las horas extra
     public function empleado()
     {
         return $this->belongsTo(Empleado::class, 'empleado_id');
     }
 
-    // Relación: Una hora extra es aprobada por un usuario (Jefe)
+    // Usuario que aprobó (jefe, dirección, etc.)
     public function aprobador()
     {
         return $this->belongsTo(User::class, 'aprobado_por');
@@ -49,14 +50,13 @@ class HoraExtra extends Model
         return $this->belongsTo(Departamento::class, 'departamento_aprobador_id');
     }
 
-     // Visualizar los detalles de las actividades
+    // Detalle de actividades
     public function detalles()
     {
-      // El segundo parámetro es la llave foránea en la tabla horas_extras_detalle
-      return $this->hasMany(HoraExtraDetalle::class, 'hora_extra_id');
+        return $this->hasMany(HoraExtraDetalle::class, 'hora_extra_id');
     }
 
-     /**
+   /**
      * Este método se activa automáticamente al crear una nueva solicitud.
      * Busca al empleado por nombre y le asigna su ID real.
      */
@@ -78,6 +78,11 @@ class HoraExtra extends Model
             }
         });
     }
+
+
+    /* =========================
+       SCOPES (MUY ÚTILES)
+    ========================== */
 
     // Horas pendientes para un departamento
     public function scopePendientesPorDepartamento($query, $departamentoId)
