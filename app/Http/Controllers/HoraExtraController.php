@@ -4,20 +4,24 @@
 namespace App\Http\Controllers;
 
 use App\Models\HoraExtra;                 // Modelo que gestiona los registros de horas extra (FT-GTH-002)
+use App\Models\HoraExtraDetalle;                 // Modelo que gestiona los registros de horas extra (FT-GTH-002)
 use App\Models\SaldoTiempoCompensatorio; // Modelo que maneja el saldo consolidado de tiempo compensatorio del empleado
 use App\Models\TiempoCompensatorio;     // Modelo que almacena el historial de movimientos de tiempo compensatorio
 use App\Models\Empleado;               // Modelo del empleado (datos personales y laborales)
 use Illuminate\Http\Request;          // Clase para manejar las solicitudes HTTP (Request)
 use Illuminate\Support\Facades\DB;    // Facade para ejecutar transacciones y consultas directas a la base de datos
 use Illuminate\Support\Facades\Auth;  // Facade para obtener el usuario autenticado y controlar permisos
-use Illuminate\Support\Facades\Mail;  // Importa el *facade* Mail de Laravel, que permite enviar correos fácilmente
-use App\Mail\HorasExtraMail;          // Importa la clase Mailable HorasExtraMail que definiste en App\Mail
-                                      // Esta clase contiene la plantilla, asunto y datos del correo que se va a enviar
+use Illuminate\Support\Facades\Mail;
+use App\Mail\HorasExtraMail;
+use App\Mail\HorasCargadasMail;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Storage;
 
 
 class HoraExtraController extends Controller
 {
     
+
     /**
      * Muestra la bandeja de entrada para jefes/administración
      * Solo registros con estado 'pendiente'
@@ -33,87 +37,165 @@ class HoraExtraController extends Controller
         return view('horas_extras.pendientes', compact('pendientes'));
     }
 
-    /**
-     * Registra una nueva solicitud de horas extras (Formato FT-GTH-002)
-     */
-   public function store(Request $request)
-   {
-     // 1. Limpiamos el nombre que viene del Forms (quitar espacios extras)
-     $nombreDesdeForms = trim($request->input('nombre'));
+   
+/**
+ * Recupera la firma del jefe desde la tabla 'firmas' (LONGBLOB)
+ * para mostrarla en el modal antes de guardar.
+ */
+public function getFirmaJefe()
+{
+    // Obtenemos el ID del empleado logueado (que es el jefe en este contexto)
+    $empleadoId = auth()->user()->empleado->id;
+    
+    $firma = DB::table('firmas')
+                ->where('empleado_id', $empleadoId)
+                ->where('activo', 1)
+                ->first();
 
-     // --- PRUEBA DE DEBUG (Descomenta la línea de abajo si quieres ver qué llega de Forms) ---
-     // dd($nombreDesdeForms); 
+    if ($firma && $firma->imagen_path) {
+        return response()->json([
+            'success' => true,
+            // Importante: imagen_path es el binario directo de la DB
+            'firma' => 'data:image/png;base64,' . base64_encode($firma->imagen_path)
+        ]);
+    }
 
-       // 2. Buscamos al empleado con una comparación insensible a mayúsculas/minúsculas
-       $empleado = \App\Models\Empleado::where(function($query) use ($nombreDesdeForms) {
-         $query->where(\DB::raw("LOWER(CONCAT(nombre, ' ', apellido))"), 'LIKE', '%' . strtolower($nombreDesdeForms) . '%')
-              ->orWhere(\DB::raw("LOWER(nombre)"), 'LIKE', '%' . strtolower($nombreDesdeForms) . '%');
-       })->first();
+    return response()->json([
+        'success' => false, 
+        'message' => 'No tienes una firma registrada en el sistema.'
+    ]);
+}
 
-       // 3. Asignamos el ID si lo encontramos
-       $empleadoId = $empleado ? $empleado->id : null;
+/**
+ * Guarda la solicitud y genera el PDF con la firma recuperada de la BD.
+ */
+public function store(Request $request)
+{
+    $request->validate([
+        'empleado_id' => 'required|exists:empleados,id',
+        'fecha'       => 'required|array',
+        'hora_inicio' => 'required|array',
+        'hora_fin'    => 'required|array',
+        'actividad'   => 'required|array',
+    ]);
 
-       // 4. Si encontramos el ID, lo inyectamos al request para la validación
-       if ($empleadoId) {
-          $request->merge(['empleado_id' => $empleadoId]);
+    try {
+        DB::beginTransaction();
+
+        // 1. Datos del empleado que solicita
+        $empleadoSolicitante = \App\Models\Empleado::findOrFail($request->empleado_id);
+        $nombreCompleto = $empleadoSolicitante->nombre . ' ' . $empleadoSolicitante->apellido;
+
+        // 2. Calcular total de horas
+        $totalMinutos = 0;
+        foreach ($request->horas_trabajadas as $tiempo) {
+            if (str_contains($tiempo, ':')) {
+                [$h, $m] = explode(':', $tiempo);
+                $totalMinutos += ($h * 60) + $m;
+            }
         }
+        $totalDecimal = round($totalMinutos / 60, 2);
 
-       // 5. Validación: Si el ID sigue siendo NULL, aquí se detendrá y te dirá que es requerido
-       $request->validate([
-         'empleado_id'       => 'required|exists:empleados,id',
-         'lugar'             => 'required|string|max:255',
-         'solicitado_a'      => 'required|string|max:255',
-         'cargo_solicitante' => 'required|string|max:255',
-         'tipo_pago'         => 'required|in:pago,acumular',
-         'fecha'             => 'required|array|min:1',
-         'horas_trabajadas.*'=> 'required|numeric|min:0.1',
-        ], [
-         'empleado_id.required' => "No pudimos vincular el nombre '$nombreDesdeForms' con ningún empleado en el sistema."
+        // 3. Crear cabecera de Hora Extra
+        $horaExtra = \App\Models\HoraExtra::create([
+            'empleado_id'        => $request->empleado_id,
+            'nombre'             => $nombreCompleto, 
+            'lugar'              => $request->lugar,
+            'departamento'       => $request->departamento,
+            'horas_acumuladas'   => $totalDecimal,
+            'observaciones_jefe' => $request->observaciones_jefe,
+            'codigo_formato'     => 'FT-GTH-002',
+            'estado'             => ($request->accion === 'guardar_y_firmar') ? 'proceso' : 'pendiente',
+            'paso_actual'        => ($request->accion === 'guardar_y_firmar') ? 1 : 0
         ]);
 
-       try {
-         DB::beginTransaction();
+        // 4. Guardar detalle de actividades (las 5 columnas)
+        $detalleData = ['hora_extra_id' => $horaExtra->id];
+        for ($i = 0; $i < 5; $i++) {
+            $n = $i + 1;
+            $hIni = $request->hora_inicio[$i] ?? null;
+            $hFin = $request->hora_fin[$i] ?? null;
 
-         $empleado = \App\Models\Empleado::with('departamento')->findOrFail($request->empleado_id);
-         $totalHorasCalculadas = array_sum($request->horas_trabajadas);
-         $horasParaAcumular = ($request->tipo_pago === 'acumular') ? $totalHorasCalculadas : 0;
-
-         // 6. Crear CABECERA
-         $horaExtra = HoraExtra::create([
-             'empleado_id'        => $empleado->id,
-             'nombre'             => $nombreDesdeForms,
-             'lugar'              => $request->lugar,
-             'solicitado_a'       => $request->solicitado_a,
-             'cargo_solicitante'  => $request->cargo_solicitante,
-             'horas_trabajadas'   => $totalHorasCalculadas,
-             'horas_acumuladas'   => $horasParaAcumular,
-             'observaciones_jefe' => $request->observaciones ?? null,
-             'codigo_formato'     => 'FT-GTH-002',
-             'estado'             => 'pendiente',
-            ]);
-
-           // 7. Crear DETALLE
-           foreach ($request->fecha as $i => $fecha) {
-                HoraExtraDetalle::create([
-                 'hora_extra_id'   => $horaExtra->id,
-                 'fecha'           => $fecha,
-                 'hora_inicio'     => $request->hora_inicio[$i],
-                 'hora_fin'        => $request->hora_fin[$i],
-                 'horas_trabajadas'=> $request->horas_trabajadas[$i],
-                 'actividad'       => $request->actividad[$i],
-                 'empleado_id'     => $empleado->id,
-                 'departamento'    => $empleado->departamento->nombre ?? 'N/A', 
-                 'lugar'           => $request->lugar,
-                ]);
+            $detalleData["fecha{$n}"]        = $request->fecha[$i] ?? null;
+            $detalleData["hora_inicio{$n}"]  = $hIni ? date('h:i', strtotime($hIni)) : null;
+            $detalleData["hora_fin{$n}"]     = $hFin ? date('h:i', strtotime($hFin)) : null;
+            $detalleData["actividad{$n}"]    = $request->actividad[$i] ?? null;
+            
+            if ($hIni && $hFin) {
+                $detalleData["periodo_inicio{$n}"] = date('A', strtotime($hIni));
+                $detalleData["periodo_fin{$n}"]    = date('A', strtotime($hFin));
             }
-
-           DB::commit();
-          return redirect()->back()->with('success', 'Solicitud registrada correctamente para ' . $empleado->nombre);
-
-        } catch (\Exception $e) {
-         DB::rollBack();
-         return redirect()->back()->with('error', 'Error crítico: ' . $e->getMessage());
         }
+        \App\Models\HoraExtraDetalle::create($detalleData);
+
+        // 5. Recuperar la firma de la BD para el PDF
+        $firmaJefeRaw = null;
+        if ($request->accion === 'guardar_y_firmar') {
+            $jefeId = auth()->user()->empleado->id;
+            $firmaRecord = DB::table('firmas')
+                             ->where('empleado_id', $jefeId)
+                             ->where('activo', 1)
+                             ->first();
+            
+            if ($firmaRecord) {
+                $firmaJefeRaw = $firmaRecord->imagen_path;
+            }
+        }
+
+        // 6. Generar PDF con la firma binaria
+        $pdf = Pdf::loadView('pdf.formato_horas_extra', [
+            'solicitud'  => $horaExtra,
+            'detalle'    => \App\Models\HoraExtraDetalle::find($detalleData['hora_extra_id']),
+            'firma_jefe' => $firmaJefeRaw // Pasamos el LONGBLOB directamente
+        ]);
+
+        $pdfContent = $pdf->output();
+
+        // 7. Enviar Correo
+        if ($empleadoSolicitante->email) {
+            Mail::to($empleadoSolicitante->email)->send(
+                new \App\Mail\HorasCargadasMail($horaExtra, $pdfContent, [])
+            );
+        }
+
+        DB::commit();
+        return redirect()->back()->with('success', 'Solicitud registrada y firmada correctamente.');
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return "Error crítico: " . $e->getMessage();
+    }
+}
+
+ 
+/**
+ * Procesa el total de horas para la BD
+ */
+private function sumarHorasReloj($arreglo) {
+    $minutosTotales = 0;
+    foreach($arreglo as $tiempo) {
+        if(str_contains($tiempo, ':')) {
+            [$h, $m] = explode(':', $tiempo);
+            $minutosTotales += ($h * 60) + $m;
+        }
+    }
+    return round($minutosTotales / 60, 2);
+}
+
+   /**
+    * Mapea las filas a las columnas fijas fecha1...fecha5
+    */
+    private function guardarDetalleFijo($id, $request) {
+      $data = ['hora_extra_id' => $id];
+      for ($i = 0; $i < 5; $i++) {
+         $n = $i + 1;
+         $data["fecha{$n}"]        = $request->fecha[$i] ?? null;
+         $data["hora_inicio{$n}"]  = $request->hora_inicio[$i] ?? null;
+         $data["hora_fin{$n}"]     = $request->hora_fin[$i] ?? null;
+         $data["actividad{$n}"]    = $request->actividad[$i] ?? null;
+         // Agrega periodos si tu tabla los requiere obligatoriamente
+        }
+      \App\Models\HoraExtraDetalle::create($data);
     }
 
     /**
@@ -236,8 +318,9 @@ class HoraExtraController extends Controller
             return back()->with('success', 'Firma registrada correctamente.');
         }
     }
-
-    // Obrener el jefe
+    
+    // ESTA ES LA FUNCIÓN ÚNICA QUE RESUME TODO
+    // Cambia private por public
     public function obtenerJefeId($configPaso, $solicitud, $indice)
     {
       if (!$configPaso) return null;
@@ -282,6 +365,7 @@ class HoraExtraController extends Controller
    }
 
 
+
    // Función auxiliar para no repetir código del saldo
     private function actualizarSaldo($registro) {
       $horas = (float) $registro->horas_trabajadas;
@@ -301,61 +385,93 @@ class HoraExtraController extends Controller
        $saldo->save();
     }
 
-    // Getion de firmas 
-   public function gestion()
-  {
-    $user = auth()->user();
-    $empleadoLogueado = $user->empleado;
+    // En tu Controller
+    public function gestion(Request $request)
+    {
+     $user = auth()->user();
+     $empleadoLogueado = $user->empleado;
 
-    // 1. Cargamos las solicitudes con sus relaciones
-    $query = HoraExtra::with(['empleado.departamento', 'detalles']);
-
-    // 2. LÓGICA DE ACCESO TOTAL (Dirección, GTH, Admin)
-    $tieneAccesoTotal = false;
-
-    if ($user->rol) {
-      // Convertimos el nombre a Mayúsculas y quitamos tildes para comparar
-      $nombreRol = strtoupper(str_replace(['á', 'é', 'í', 'ó', 'ú', 'Á', 'É', 'Í', 'Ó', 'Ú'], 
-      ['A', 'E', 'I', 'O', 'U', 'A', 'E', 'I', 'O', 'U'], 
-        $user->rol->nombre));
-
-      if ($user->hasRole('Administrador') || 
-        $user->hasRole('GTH') || 
-        str_contains($nombreRol, 'DIRECCION')) {
-          $tieneAccesoTotal = true;
-        }
-    }
-
-    // 3. APLICAR FILTROS
-    if (!$tieneAccesoTotal) {
-        $query->where(function($q) use ($empleadoLogueado) {
-            // El empleado común solo ve las suyas
-            $q->where('empleado_id', $empleadoLogueado->id);
-
-            // Si es jefe, también ve las de su departamento
-            $deptoDondeEsJefe = \DB::table('departamentos')
-                ->where('jefe_empleado_id', $empleadoLogueado->id)
-                ->first();
-
-            if ($deptoDondeEsJefe) {
-                $q->orWhereHas('empleado', function($subQuery) use ($deptoDondeEsJefe) {
-                    $subQuery->where('departamento_id', $deptoDondeEsJefe->id);
-                });
-            }
-        });
-    }
- 
-   // 4. Obtener resultados con ORDEN JERÁRQUICO
-    $solicitudes = $query->orderBy('paso_actual', 'desc')
-                         ->orderBy('created_at', 'desc')
-                         ->get();
+     // 1. ROLES Y PERMISOS
+     $esAdmin = $user->hasRole('Administrador');
+     $esGTH = $user->hasRole('GTH') || $user->hasRole('Gestión de Talento Humano');
+     $esAdminOGTH = $esAdmin || $esGTH;
     
-    // Pasos para las "bolitas" de la vista
-    $pasosConfigurados = \DB::table('flujo_firmas_config')
-                            ->where('activo', 1)
-                            ->orderBy('id', 'asc')
-                            ->get();
+     $departamentoQueDirige = \App\Models\Departamento::where('jefe_empleado_id', $empleadoLogueado->id)->first();
+     $esJefe = !is_null($departamentoQueDirige);
 
-    return view('horas_extras.gestion', compact('solicitudes', 'pasosConfigurados'));
-  }
+     // 2. DETERMINAR ALCANCE DE DEPARTAMENTOS (Para el JS)
+     // Moví esto arriba para que siempre tenga datos
+     $queryDepto = \App\Models\Departamento::with(['empleados' => function($q) {
+         $q->orderBy('nombre');
+      }]);
+
+     if ($esAdminOGTH) {
+          $departamentos = $queryDepto->orderBy('nombre')->get();
+        } elseif ($esJefe) {
+          $departamentos = $queryDepto->where('id', $departamentoQueDirige->id)->get();
+        } else {
+          $departamentos = collect();
+        }
+
+      // Limpiamos los índices para que JS reciba un Array puro []
+      $departamentos = $departamentos->map(function($depto) {
+          $depto->setRelation('empleados', $depto->empleados->values());
+          return $depto;
+        });
+
+      // 3. FILTRO DE BÚSQUEDA
+      $empleadoId = $request->input('empleado_id');
+      $esBusquedaActiva = !empty($empleadoId);
+
+      // 4. ASIGNAR EMPLEADO PARA CÁLCULOS
+      if ($esAdminOGTH) {
+          $empleadoAConsultar = $esBusquedaActiva ? \App\Models\Empleado::find($empleadoId) : $empleadoLogueado;
+        } elseif ($esJefe) {
+         $esDeSuEquipo = \App\Models\Empleado::where('id', $empleadoId)
+            ->where('departamento_id', $departamentoQueDirige->id)->exists();
+          $empleadoAConsultar = ($esBusquedaActiva && $esDeSuEquipo) ? \App\Models\Empleado::find($empleadoId) : $empleadoLogueado;
+        } else {
+          $empleadoAConsultar = $empleadoLogueado;
+        }
+
+       // 5. CÁLCULOS DE SALDOS
+       $totalAcumuladas = 0; $totalPagadas = 0; $totalConsumidas = 0; $totalPendientesSolicitud = 0;
+    
+        if ($empleadoAConsultar) {
+         $totalAcumuladas = \App\Models\HoraExtra::where('empleado_id', $empleadoAConsultar->id)->where('estado', 'aprobado')->sum('horas_acumuladas');
+         $totalPagadas = \App\Models\HoraExtra::where('empleado_id', $empleadoAConsultar->id)->where('estado', 'aprobado')->sum('horas_pagadas');
+         $totalConsumidas = \App\Models\Solicitud::where('correo', $empleadoAConsultar->email)->where('tipo', 'A CUENTA DE TIEMPO COMPENSATORIO')->where('estado', 'aprobado')->sum('horas');
+         $totalPendientesSolicitud = \App\Models\Solicitud::where('correo', $empleadoAConsultar->email)->where('tipo', 'A CUENTA DE TIEMPO COMPENSATORIO')->whereIn('estado', ['pendiente', 'proceso'])->sum('horas');
+        }
+    
+      $saldoRestante = $totalAcumuladas - $totalConsumidas;
+
+      // 6. TABLA DE REGISTROS (Historial)
+      $queryRegistros = \App\Models\HoraExtra::with(['empleado', 'detalles']);
+
+       // Filtro integrado
+      if ($request->filled('buscar')) {
+          $queryRegistros->where('nombre', 'LIKE', '%' . $request->buscar . '%');
+        }
+    
+       if (!$esAdminOGTH) {
+           if ($esJefe) {
+              $queryRegistros->whereHas('empleado', function($q) use ($departamentoQueDirige, $empleadoLogueado) {
+                  $q->where('departamento_id', $departamentoQueDirige->id)->orWhere('id', $empleadoLogueado->id);
+               });
+            } else {
+               $queryRegistros->where('empleado_id', $empleadoLogueado->id);
+            }
+        }
+    
+        $solicitudes = $queryRegistros->orderBy('created_at', 'desc')->paginate(5);
+        $pasosConfigurados = \DB::table('flujo_firmas_config')->where('activo', 1)->orderBy('id', 'asc')->get();
+
+        return view('horas_extras.gestion', compact(
+         'solicitudes', 'pasosConfigurados', 'totalAcumuladas', 'totalPagadas', 
+         'totalConsumidas', 'totalPendientesSolicitud', 'saldoRestante', 
+         'esAdmin', 'esGTH', 'esJefe', 'departamentos', 'empleadoAConsultar', 'esBusquedaActiva'
+        ));
+    }
 }
+
