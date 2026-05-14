@@ -563,6 +563,12 @@ Route::prefix('informes')->middleware(['auth'])->group(function () {
     Route::get('/compensatorio/excel', [ReporteController::class, 'excelCompensatorio'])->name('informes.compensatorio.excel');
     Route::get('/validar-compensatorio', [ReporteController::class, 'validarCompensatorio'])->name('validar.compensatorio');
     
+    // 🔹 Rutas para Permisos y Vacaciones
+   // Rutas para Reportes de Permisos y Vacaciones
+Route::get('/informes/permisos', [ReporteController::class, 'permisos'])->name('informes.permisos');
+Route::get('/informes/validar-permisos', [ReporteController::class, 'validarPermisos'])->name('informes.validar.permisos');
+Route::get('/informes/permisos/pdf', [ReporteController::class, 'generarPermisosPdf'])->name('informes.permisos.pdf');
+Route::get('/informes/permisos/excel', [ReporteController::class, 'generarPermisosExcel'])->name('informes.permisos.excel');
     });
 
 

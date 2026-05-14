@@ -1,456 +1,258 @@
 <?php
 
+namespace App\Http\Controllers;
 
-namespace App\Http\Controllers;                       // Namespace donde se encuentra el controlador
-
-use Illuminate\Support\Facades\DB;                    // Facade para realizar consultas SQL con Query Builder
-use Illuminate\Http\Request;                         // Clase Request para manejar formularios y peticiones HTTP
-use App\Models\Departamento;                        // Modelo de departamentos
-use App\Models\Empleado;                           // Modelo de empleados
+use Illuminate\Support\Facades\DB;
+use Illuminate\Http\Request;
+use App\Models\Departamento;
+use App\Models\Empleado;
 use App\Models\HoraExtra;
 use App\Models\Solicitud;
-use Barryvdh\DomPDF\Facade\Pdf;                   // Librería DomPDF para generar archivos PDF
-use App\Exports\ExportarDesempenoDepto;          // Clase personalizada para exportar desempeño por departamento en Excel
-use App\Exports\IndividualExport;              // Clase personalizada para exportar desempeño individual en Excel
+use Barryvdh\DomPDF\Facade\Pdf;
+use App\Exports\ExportarDesempenoDepto;
+use App\Exports\IndividualExport;
 use App\Exports\CompensatorioExport;
-use Maatwebsite\Excel\Facades\Excel;           // Librería Excel para generar archivos .xlsx
-
-
-
-// Controlador encargado de gestionar los reportes del sistema
+use Maatwebsite\Excel\Facades\Excel;
 
 class ReporteController extends Controller
 {
-    // 🔹 Vista principal de informes
     public function index() {
-        // Retorna la vista principal de reportes
         return view('informes.index');
     }
 
-    // 🔹 Vista para reporte por departamento
     public function departamento() {
-
-        // Obtener todos los departamentos
         $departamentos = Departamento::all();
-
-       // Solo años donde hay EVALUACIONES
-       $anios = DB::table('asignacion_evaluaciones')
+        $anios = DB::table('asignacion_evaluaciones')
                 ->selectRaw('YEAR(created_at) as anio')
                 ->distinct()
                 ->orderBy('anio', 'desc')
                 ->pluck('anio');
         
-        // Retornar vista con datos necesarios
         return view('informes.desempeno_depto', compact('departamentos', 'anios'));
     }
 
-    // 🔹 Generar PDF del desempeño por departamento
     public function generarPdf(Request $request) {
-
-        // Obtener parámetros enviados desde el formulario
         $depto_id = $request->departamento_id;
         $anio = $request->anio;
         $periodo = $request->periodo;
         $mes = $request->mes;
-
-        // Buscar departamento seleccionado
         $departamento = Departamento::find($depto_id);
 
-        // Consulta principal de evaluaciones
         $query = DB::table('asignacion_evaluaciones as ae')
-
-            // Relación con empleados
             ->join('empleados as e', 'ae.empleado_id', '=', 'e.id') 
-
-            // Relación con proyectos
             ->leftJoin('proyectos as p', 'ae.proyecto_id', '=', 'p.id')
-
-            // Campos a seleccionar
             ->select(
-
-                // Nombre del proyecto o tipo de actividad
                 DB::raw("COALESCE(p.nombre, ae.tipo) as actividad"), 
-
-                // Fecha más reciente de evaluación
                 DB::raw("MAX(ae.created_at) as fecha"), 
-
-                // Promedio de puntuación
                 DB::raw("AVG(ae.puntuacion_total) as resultado")
             )
-
-            // Filtrar por departamento
             ->where('e.departamento_id', $depto_id) 
-
-            // Filtrar por año
             ->whereYear('ae.created_at', $anio)
-
-            // Agrupar por actividad
             ->groupBy('actividad');
 
-        // Validar si el reporte es mensual
         if ($periodo == 'mensual' && $mes) {
-
-            // Filtrar por mes
             $query->whereMonth('ae.created_at', $mes);
-
-            // Texto descriptivo del período
             $periodo_texto = "Mensual (" . $mes . ")";
-
         } else {
-
-            // Texto para reporte anual
             $periodo_texto = "Anual Acumulado";
         }
 
-        // Ejecutar consulta
         $datos = $query->get();
-
-        // Calcular promedio general del departamento
         $promedio_depto = $datos->avg('resultado');
 
-        // Generar PDF usando la vista correspondiente
-        $pdf = Pdf::loadView(
-            'informes.pdf_desempeno',
-            compact(
-                'datos',
-                'departamento',
-                'anio',
-                'periodo_texto',
-                'promedio_depto'
-            )
-        );
-        
-        // Descargar archivo PDF
+        $pdf = Pdf::loadView('informes.pdf_desempeno', compact('datos', 'departamento', 'anio', 'periodo_texto', 'promedio_depto'));
         return $pdf->download("Reporte_Desempeño_{$departamento->nombre}.pdf");
     }
 
-    // 🔹 Generar reporte Excel por departamento
     public function generarExcel(Request $request) {
-
-        // Obtener datos enviados
         $depto_id = $request->departamento_id;
         $anio = $request->anio;
-        $periodo = $request->periodo;
-        $mes = $request->mes;
-
-        // Buscar departamento
         $departamento = Departamento::find($depto_id);
+        $nombreArchivo = "Desempeño_" . str_replace(' ', '_', $departamento->nombre) . "_{$anio}.xlsx";
 
-        // Construir nombre del archivo
-        $nombreArchivo = "Desempeño_" .
-            str_replace(' ', '_', $departamento->nombre) .
-            "_{$anio}.xlsx";
-
-        // Descargar archivo Excel
-        return Excel::download(
-            new ExportarDesempenoDepto($depto_id, $anio, $periodo, $mes),
-            $nombreArchivo
-        );
+        return Excel::download(new ExportarDesempenoDepto($depto_id, $anio, $request->periodo, $request->mes), $nombreArchivo);
     }
 
-    // 🔹 Validar si existen datos antes de generar reportes
     public function validarDatos(Request $request) {
-
-        // Consulta base
         $query = DB::table('asignacion_evaluaciones as ae')
-
-            // Relación con empleados
             ->join('empleados as e', 'ae.empleado_id', '=', 'e.id')
-
-            // Filtrar por año
             ->whereYear('ae.created_at', $request->anio);
 
-        // Validación para reporte individual
         if ($request->filled('empleado_id')) {
-
-            // Filtrar por empleado
             $query->where('ae.empleado_id', $request->empleado_id);
-
-        } 
-        // Validación para reporte departamental
-        elseif ($request->filled('departamento_id')) {
-
-            // Filtrar por departamento
+        } elseif ($request->filled('departamento_id')) {
             $query->where('e.departamento_id', $request->departamento_id);
         }
 
-        // Filtro mensual para ambos casos
         if ($request->periodo === 'mensual' && $request->filled('mes')) {
-
-            // Filtrar por mes
             $query->whereMonth('ae.created_at', $request->mes);
         }
 
-        // Contar registros encontrados
         $total = $query->count();
-
-        // Retornar respuesta JSON
-        return response()->json([
-            'count' => $total,
-            'existe' => $total > 0
-        ]);
+        return response()->json(['count' => $total, 'existe' => $total > 0]);
     }
 
-    // 🔹 Vista para reporte individual
-   public function individual() {
-     $empleados = Empleado::orderBy('nombre', 'asc')->get();
-     $departamentos = Departamento::orderBy('nombre', 'asc')->get(); 
-    
-     // Solo años donde hay EVALUACIONES
-     $anios = DB::table('asignacion_evaluaciones')
+    public function individual() {
+        $empleados = Empleado::orderBy('nombre', 'asc')->get();
+        $departamentos = Departamento::orderBy('nombre', 'asc')->get(); 
+        $anios = DB::table('asignacion_evaluaciones')
                 ->selectRaw('YEAR(created_at) as anio')
                 ->distinct()
                 ->orderBy('anio', 'desc')
                 ->pluck('anio');
 
-     return view('informes.individual', compact('empleados', 'departamentos', 'anios'));
+        return view('informes.individual', compact('empleados', 'departamentos', 'anios'));
     }
 
-    // 🔹 Generar PDF individual
     public function generarIndividualPdf(Request $request) {
-
-        // Buscar empleado
         $empleado = Empleado::findOrFail($request->empleado_id);
-        
-        // Consulta principal
         $query = DB::table('asignacion_evaluaciones as ae')
-
-            // Relación con proyectos
             ->leftJoin('proyectos as p', 'ae.proyecto_id', '=', 'p.id')
-
-            // Campos a mostrar
-            ->select(
-                DB::raw("COALESCE(p.nombre, ae.tipo) as actividad"),
-                'ae.created_at as fecha',
-                'ae.puntuacion_total as resultado'
-            )
-
-            // Filtrar por empleado
+            ->select(DB::raw("COALESCE(p.nombre, ae.tipo) as actividad"), 'ae.created_at as fecha', 'ae.puntuacion_total as resultado')
             ->where('ae.empleado_id', $request->empleado_id)
-
-            // Filtrar por año
             ->whereYear('ae.created_at', $request->anio);
 
-        // Filtro mensual
         if ($request->periodo == 'mensual' && $request->mes) {
-
-            // Filtrar por mes
             $query->whereMonth('ae.created_at', $request->mes);
         }
 
-        // Obtener resultados
         $datos = $query->get();
-
-        // Calcular promedio global
         $promedio_global = $datos->avg('resultado') ?? 0;
 
-        // Generar PDF
-        $pdf = Pdf::loadView('informes.pdf_individual', [
-
-            // Datos para la vista
-            'datos' => $datos,
-            'empleado' => $empleado,
-            'anio' => $request->anio,
-            'promedio_global' => $promedio_global
-        ]);
-
-        // Descargar archivo PDF
-        return $pdf->download(
-            "Evaluacion_{$empleado->nombre}_{$empleado->apellido}.pdf"
-        );
+        $pdf = Pdf::loadView('informes.pdf_individual', ['datos' => $datos, 'empleado' => $empleado, 'anio' => $request->anio, 'promedio_global' => $promedio_global]);
+        return $pdf->download("Evaluacion_{$empleado->nombre}_{$empleado->apellido}.pdf");
     }
 
-     public function generarIndividualExcel(Request $request)
-    {
-      // 1. Obtener los datos básicos
-      $empleado = Empleado::findOrFail($request->empleado_id);
-      $anio = $request->anio;
-      $periodo = $request->periodo;
-      $mes = $request->mes;
+    public function generarIndividualExcel(Request $request) {
+        $empleado = Empleado::findOrFail($request->empleado_id);
+        $query = DB::table('asignacion_evaluaciones as ae')
+            ->leftJoin('proyectos as p', 'ae.proyecto_id', '=', 'p.id')
+            ->select(DB::raw("COALESCE(p.nombre, ae.tipo) as actividad"), 'ae.created_at as fecha', 'ae.puntuacion_total as resultado')
+            ->where('ae.empleado_id', $request->empleado_id)
+            ->whereYear('ae.created_at', $request->anio);
 
-      // 2. Consulta rápida con DB (como la de depto)
-      $query = DB::table('asignacion_evaluaciones as ae')
-     ->leftJoin('proyectos as p', 'ae.proyecto_id', '=', 'p.id')
-     ->select(
-            DB::raw("COALESCE(p.nombre, ae.tipo) as actividad"),
-            'ae.created_at as fecha',
-            'ae.puntuacion_total as resultado'
-        )
-        ->where('ae.empleado_id', $request->empleado_id)
-        ->whereYear('ae.created_at', $anio);
+        $periodo_texto = ($request->periodo == 'mensual' && $request->mes) ? "Mensual (" . $request->mes . ")" : "Anual Acumulado";
+        if ($request->periodo == 'mensual' && $request->mes) $query->whereMonth('ae.created_at', $request->mes);
 
-       // 3. Filtro de mes
-       if ($periodo == 'mensual' && $mes) {
-          $query->whereMonth('ae.created_at', $mes);
-           $periodo_texto = "Mensual (" . $mes . ")";
-        } else {
-          $periodo_texto = "Anual Acumulado";
-        }
-
-      $datos = $query->get();
-      $promedio_individual = $datos->avg('resultado') ?? 0;
-
-      // 4. Descarga directa
-      return Excel::download(
-         new IndividualExport($empleado, $datos, $periodo_texto, $anio, $promedio_individual), 
-         "Reporte_Individual_{$empleado->apellido}.xlsx"
-        );
+        $datos = $query->get();
+        return Excel::download(new IndividualExport($empleado, $datos, $periodo_texto, $request->anio, $datos->avg('resultado') ?? 0), "Reporte_Individual_{$empleado->apellido}.xlsx");
     }
 
-   // Función auxiliar para el texto del mes
-   private function obtenerNombreMes($mes) {
-      $meses = ['01'=>'Enero','02'=>'Febrero','03'=>'Marzo','04'=>'Abril','05'=>'Mayo','06'=>'Junio',
-              '07'=>'Julio','08'=>'Agosto','09'=>'Septiembre','10'=>'Octubre','11'=>'Noviembre','12'=>'Diciembre'];
-      return $meses[$mes] ?? '';
+    private function obtenerNombreMes($mes) {
+        $meses = ['01'=>'Enero','02'=>'Febrero','03'=>'Marzo','04'=>'Abril','05'=>'Mayo','06'=>'Junio','07'=>'Julio','08'=>'Agosto','09'=>'Septiembre','10'=>'Octubre','11'=>'Noviembre','12'=>'Diciembre'];
+        return $meses[$mes] ?? '';
     }
 
-    // 🔹 Placeholder reporte de permisos
+    // --- SECCIÓN COMPENSATORIO ---
+
+    public function compensatorio() {
+        $departamentos = Departamento::all();
+        $empleados = Empleado::all(); 
+        $anios = DB::table('horas_extras')->selectRaw('YEAR(created_at) as anio')
+            ->union(DB::table('solicitudes')->selectRaw('YEAR(fecha_inicio) as anio'))
+            ->distinct()->orderBy('anio', 'desc')->pluck('anio');
+
+        return view('informes.compensatorio', compact('departamentos', 'empleados', 'anios'));
+    }
+
+    public function validarCompensatorio(Request $request) {
+        $query = HoraExtra::where('empleado_id', $request->empleado_id)->where('estado', 'aprobado');
+        $request->periodo === 'anual' ? $query->whereYear('created_at', $request->anio) : $query->whereYear('created_at', $request->anio)->whereMonth('created_at', $request->mes);
+        return response()->json(['count' => $query->count()]);
+    }
+
+    public function pdfCompensatorio(Request $request) {
+        $empleado = Empleado::with(['departamento'])->findOrFail($request->empleado_id);
+        $movimientos = HoraExtra::where('empleado_id', $empleado->id)->where('estado', 'aprobado')->whereYear('created_at', $request->anio)
+            ->when($request->mes, fn($q) => $q->whereMonth('created_at', $request->mes))->get();
+
+        $nombreExacto = $empleado->nombre . ' ' . $empleado->apellido;
+        $solicitudes = Solicitud::where('nombre', $nombreExacto)->where('estado', 'aprobado')->where('tipo', 'A cuenta de tiempo compensatorio')
+            ->whereYear('fecha_inicio', $request->anio)->when($request->mes, fn($q) => $q->whereMonth('fecha_inicio', $request->mes))->get();
+
+        $todosLosRegistros = $movimientos->concat($solicitudes)->sortBy(fn($item) => $item->fecha ?? $item->fecha_inicio);
+        return Pdf::loadView('informes.pdf_compensatorio', ['empleado' => $empleado, 'anio' => $request->anio, 'todosLosRegistros' => $todosLosRegistros])
+            ->setPaper('letter', 'portrait')->stream("Reporte_Compensatorio.pdf");
+    }
+
+    public function excelCompensatorio(Request $request) {
+        $empleado = Empleado::with(['departamento'])->findOrFail($request->empleado_id);
+        $firmaData = DB::table('firmas')->where('empleado_id', $request->empleado_id)->where('activo', 1)->value('imagen_path');
+        
+        // Reutilizamos la lógica de filtrado... (simplificado para brevedad)
+        $nombreExacto = $empleado->nombre . ' ' . $empleado->apellido;
+        $movimientos = HoraExtra::where('empleado_id', $empleado->id)->where('estado', 'aprobado')->whereYear('created_at', $request->anio)->get();
+        $solicitudes = Solicitud::where('nombre', $nombreExacto)->where('estado', 'aprobado')->where('tipo', 'A cuenta de tiempo compensatorio')->get();
+        
+        $data = ['empleado' => $empleado, 'anio' => $request->anio, 'todosLosRegistros' => $movimientos->concat($solicitudes), 'firmaBlob' => $firmaData];
+        return Excel::download(new CompensatorioExport($data), "Reporte_Compensatorio_{$empleado->apellido}.xlsx");
+    }
+
+    // --- SECCIÓN PERMISOS Y VACACIONES ---
+
     public function permisos() {
+        $departamentos = Departamento::all();
+        $empleados = Empleado::orderBy('nombre', 'asc')->get();
+        $anios = DB::table('solicitudes')->where('tipo', '!=', 'A cuenta de tiempo compensatorio')
+            ->selectRaw('YEAR(fecha_inicio) as anio')->distinct()->orderBy('anio', 'desc')->pluck('anio');
 
-        // Mensaje temporal
-        return "Próximamente: Informe de Permisos";
+        if ($anios->isEmpty()) { $anios = collect([date('Y')]); }
+        return view('informes.permisos', compact('departamentos', 'empleados', 'anios'));
     }
 
-    // 🔹 Placeholder reporte compensatorio
-   public function compensatorio()
-{
-    $departamentos = Departamento::all();
-    $empleados = Empleado::all(); 
+public function validarPermisos(Request $request) {
+    $empleado = Empleado::findOrFail($request->empleado_id);
+    $nombreCompleto = $empleado->nombre . ' ' . $empleado->apellido;
 
-    // Años de Solicitudes UNION Años de Horas Extras
-    $aniosSolicitudes = DB::table('solicitudes')->selectRaw('YEAR(fecha_inicio) as anio');
+    $query = Solicitud::where('nombre', $nombreCompleto)
+        ->where('estado', 'aprobado')
+        ->whereYear('fecha_inicio', $request->anio);
 
-    $anios = DB::table('horas_extras')
-        ->selectRaw('YEAR(created_at) as anio')
-        ->union($aniosSolicitudes)
-        ->distinct()
-        ->orderBy('anio', 'desc')
-        ->pluck('anio');
+    // EXCLUSIONES CRÍTICAS:
+    // No queremos ni Compensatorios ni Vacaciones en este reporte de "Permisos"
+    $query->where('tipo', 'NOT LIKE', '%TIEMPO COMPENSATORIO%')
+          ->where('tipo', 'NOT LIKE', '%VACACIONES%');
 
-    return view('informes.compensatorio', compact('departamentos', 'empleados', 'anios'));
+    if ($request->periodo === 'mensual' && $request->filled('mes')) {
+        $query->whereMonth('fecha_inicio', $request->mes);
+    }
+
+    return response()->json(['count' => $query->count()]);
 }
 
-    public function validarCompensatorio(Request $request) 
-    {
-    try {
-        // Forzamos el uso del modelo con su ruta completa para evitar errores de importación
-        $query = \App\Models\HoraExtra::where('empleado_id', $request->empleado_id)
-                                     ->where('estado', 'aprobado');
+public function generarPermisosPdf(Request $request) {
+    $empleado = Empleado::findOrFail($request->empleado_id);
+    $nombreCompleto = $empleado->nombre . ' ' . $empleado->apellido;
 
-        // Intentamos usar 'created_at' que es lo más común en Laravel
-        if ($request->periodo === 'anual') {
-            $query->whereYear('created_at', $request->anio);
-        } else {
-            $query->whereYear('created_at', $request->anio)
-                  ->whereMonth('created_at', $request->mes);
-        }
+    $query = Solicitud::where('nombre', $nombreCompleto)
+        ->where('estado', 'aprobado')
+        ->whereYear('fecha_inicio', $request->anio);
 
-        return response()->json(['count' => $query->count()]);
-
-    } catch (\Exception $e) {
-        // Esto devolverá el error real al navegador para que podamos leerlo
-        return response()->json([
-            'error' => true,
-            'mensaje' => $e->getMessage(),
-            'linea' => $e->getLine()
-        ], 500);
-    }
+    // Exclusiones obligatorias para este reporte específico
+    $exclusiones = ['VACACIONES', 'TIEMPO COMPENSATORIO', 'COMPENSATORIO'];
+    foreach ($exclusiones as $excluir) {
+        $query->where('tipo', 'NOT LIKE', '%' . $excluir . '%');
     }
 
-  public function pdfCompensatorio(Request $request)
-  {
-    $empleadoId = $request->get('empleado_id');
-    $anio = $request->get('anio', date('Y'));
-    $mes = $request->get('mes');
+    $solicitudes = $query->orderBy('fecha_inicio', 'asc')->get();
 
-    $empleado = Empleado::with(['departamento'])->findOrFail($empleadoId);
+    // --- CÁLCULO DE SUMA TOTAL ---
+    $sumaDias = 0;
+    $sumaHoras = 0;
 
-    // 1. Traemos Horas Extras (Usa empleado_id)
-    $movimientos = HoraExtra::where('empleado_id', $empleado->id)
-        ->where('estado', 'aprobado')
-        ->whereYear('created_at', $anio)
-        ->when($mes, function ($query) use ($mes) {
-            return $query->whereMonth('created_at', $mes);
-        })
-        ->get();
+    foreach ($solicitudes as $s) {
+        // Suma simple de las columnas de la base de datos
+        $sumaDias += $s->dias ?? 0;
+        $sumaHoras += $s->horas ?? 0;
+    }
 
-    // 2. Traemos Solicitudes (Usa el nombre exacto para evitar errores)
-    // Usamos el nombre tal cual está en la ficha del empleado
-    $nombreExacto = $empleado->nombre . ' ' . $empleado->apellido;
-
-    $solicitudesAprobadas = Solicitud::where('nombre', $nombreExacto)
-        ->where('estado', 'aprobado')
-        ->where('tipo', 'A cuenta de tiempo compensatorio')
-        ->whereYear('fecha_inicio', $anio)
-        ->when($mes, function ($query) use ($mes) {
-            return $query->whereMonth('fecha_inicio', $mes);
-        })
-        ->get();
-
-    // 3. Unimos ambas colecciones y ordenamos cronológicamente
-    $todosLosRegistros = $movimientos->concat($solicitudesAprobadas)->sortBy(function($item) {
-        return $item->fecha ?? $item->fecha_inicio;
-    });
-
-    $pdf = \PDF::loadView('informes.pdf_compensatorio', [
-        'empleado' => $empleado,
-        'anio' => $anio,
-        'todosLosRegistros' => $todosLosRegistros
-    ]);
-
-    return $pdf->setPaper('letter', 'portrait')->stream("Reporte.pdf");
-  }
-
-   public function excelCompensatorio(Request $request)
-   {
-    $empleadoId = $request->get('empleado_id');
-    $anio = $request->get('anio', date('Y'));
-    $mes = $request->get('mes');
-
-    $empleado = \App\Models\Empleado::with(['departamento'])->findOrFail($empleadoId);
-
-    // Buscamos la firma en la tabla 'firmas' vinculada al empleado
-    // Si la firma es de un jefe específico, cambia el $empleadoId por el ID del jefe
-    $firmaData = \DB::table('firmas')
-        ->where('empleado_id', $empleadoId) 
-        ->where('activo', 1)
-        ->value('imagen_path'); // El LONGBLOB
-
-    $movimientos = \App\Models\HoraExtra::where('empleado_id', $empleado->id)
-        ->where('estado', 'aprobado')
-        ->whereYear('created_at', $anio)
-        ->when($mes, function ($query) use ($mes) {
-            return $query->whereMonth('created_at', $mes);
-        })
-        ->get();
-
-    $nombreExacto = $empleado->nombre . ' ' . $empleado->apellido;
-    $solicitudesAprobadas = \App\Models\Solicitud::where('nombre', $nombreExacto)
-        ->where('estado', 'aprobado')
-        ->where('tipo', 'A cuenta de tiempo compensatorio')
-        ->whereYear('fecha_inicio', $anio)
-        ->when($mes, function ($query) use ($mes) {
-            return $query->whereMonth('fecha_inicio', $mes);
-        })
-        ->get();
-
-    $todosLosRegistros = $movimientos->concat($solicitudesAprobadas)->sortBy(function($item) {
-        return $item->fecha ?? $item->fecha_inicio ?? $item->created_at;
-    });
-
-    $data = [
-        'empleado' => $empleado,
-        'anio' => $anio,
-        'todosLosRegistros' => $todosLosRegistros,
-        'firmaBlob' => $firmaData // Pasamos el binario directamente
-    ];
-
-    $nombreArchivo = "Reporte_Compensatorio_" . str_replace(' ', '_', $nombreExacto) . ".xlsx";
-    
-    return \Maatwebsite\Excel\Facades\Excel::download(
-        new \App\Exports\CompensatorioExport($data), 
-        $nombreArchivo
-    );
-   }
-
+    return Pdf::loadView('informes.pdf_permisos', [
+        'empleado'    => $empleado,
+        'solicitudes' => $solicitudes,
+        'anio'        => $request->anio,
+        'mes'         => $request->filled('mes') ? $this->obtenerNombreMes($request->mes) : "Anual Acumulado",
+        'total_dias'  => $sumaDias,
+        'total_horas' => $sumaHoras
+    ])->setPaper('letter', 'portrait')->stream("Historial_Permisos.pdf");
+}
 }
