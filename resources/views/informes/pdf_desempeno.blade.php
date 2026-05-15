@@ -302,7 +302,7 @@
 
                     {{-- Institución --}}
                     <span style="font-size: 8pt; color: #444;">
-                        IHCI
+                        GTH
                     </span>
                 </div>
             </div>

@@ -209,31 +209,117 @@
 
     </table>
 
+     <br><br><br>
+    {{-- =========================================================
+         SECCIÓN DE FIRMA
+    ========================================================== --}}
+    <table style="width: 100%; margin-top: 50px; border-collapse: collapse;">
+         <tr>
 
-    {{-- NOTA --}}
-    <div style="margin-top: 20px; font-style: italic; color: #555;">
+        <td style="text-align: center;">
 
-        * Este reporte refleja el desempeño individual del colaborador,
-        considerando las evaluaciones registradas durante el período seleccionado.
+            {{-- Contenedor de firma --}}
+            <div style="display: inline-block; width: 300px;">
 
-    </div>
+                {{-- Área de imagen de firma --}}
+                <div style="height: 100px; margin-bottom: 5px; position: relative;">
 
+                    @php
 
-    {{-- FIRMA --}}
-    <div class="firmas">
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Inicializar variable de firma
+                        |--------------------------------------------------------------------------
+                        */
+                        $base64Image = null;
 
-        <br><br><br>
+                        /*
+                        |--------------------------------------------------------------------------
+                        | Validar si existe firma activa
+                        |--------------------------------------------------------------------------
+                        */
+                        if (isset($firma) && $firma->imagen_path) {
 
-        <div class="espacio-firma">
-            Sello Gerencia de Talento Humano
-        </div>
+                            // Obtiene los datos de la imagen
+                            $imageData = $firma->imagen_path;
+                            
+                            /*
+                            |--------------------------------------------------------------------------
+                            | Si la imagen viene como recurso/stream
+                            |--------------------------------------------------------------------------
+                            */
+                            if (is_resource($imageData)) {
 
-    </div>
+                                // Convierte stream a contenido binario
+                                $imageData = stream_get_contents($imageData);
+                            }
+                            
+                            /*
+                            |--------------------------------------------------------------------------
+                            | Convierte la imagen en Base64
+                            |--------------------------------------------------------------------------
+                            */
+                            $base64Image = 'data:image/png;base64,' . base64_encode($imageData);
+                        }
+                    @endphp
+
+                    {{-- =========================================================
+                         SI EXISTE FIRMA
+                    ========================================================== --}}
+                    @if($base64Image)
+
+                        {{-- Imagen de firma --}}
+                        <img 
+                            src="{{ $base64Image }}" 
+                            style="max-height: 100px; max-width: 250px;"
+                        >
+
+                    {{-- =========================================================
+                         SI NO EXISTE FIRMA
+                    ========================================================== --}}
+                    @else
+
+                        {{-- Espacio vacío para firma --}}
+                        <div style="padding-top: 40px; color: #ccc; font-size: 8pt; border: 1px dashed #ddd;">
+
+                            ESPACIO PARA FIRMA <br> 
+                            (No se encontró registro activo)
+                        </div>
+
+                    @endif
+                </div>
+                
+                {{-- =========================================================
+                     LÍNEA Y TEXTO DE RESPONSABLE
+                ========================================================== --}}
+                <div style="border-top: 1.5px solid #000; padding-top: 5px;">
+
+                    {{-- Nombre del área --}}
+                    <strong style="font-size: 9pt; text-transform: uppercase; display: block;">
+                        Gerencia de Talento Humano
+                    </strong>
+
+                    {{-- Institución --}}
+                    <span style="font-size: 8pt; color: #444;">
+                        GTH
+                    </span>
+                </div>
+            </div>
+        </td>
+          </tr>
+    </table>
 
 
     {{-- FOOTER --}}
     <div class="footer">
         Documento de carácter institucional - Generado por Sistema RRHH IHCI
+            {{-- NOTA --}}
+       <div style="margin-top: 20px; font-style: italic; color: #555;">
+
+        * Este reporte refleja el desempeño individual del colaborador,
+        considerando las evaluaciones registradas durante el período seleccionado.
+
+       </div>
     </div>
 
 </body>

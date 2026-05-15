@@ -89,7 +89,7 @@ class ReporteController extends Controller
         new ExportarDesempenoDepto($depto_id, $anio, $request->periodo, $request->mes, $firma), 
         $nombreArchivo
     );
-}
+   }
 
     public function validarDatos(Request $request) {
         $query = DB::table('asignacion_evaluaciones as ae')
@@ -110,6 +110,7 @@ class ReporteController extends Controller
         return response()->json(['count' => $total, 'existe' => $total > 0]);
     }
 
+    // --- SECCIÓN Desempeño Individual por Depto. ---
     public function individual() {
         $empleados = Empleado::orderBy('nombre', 'asc')->get();
         $departamentos = Departamento::orderBy('nombre', 'asc')->get(); 
@@ -133,11 +134,13 @@ class ReporteController extends Controller
         if ($request->periodo == 'mensual' && $request->mes) {
             $query->whereMonth('ae.created_at', $request->mes);
         }
+ 
+        $firma = DB::table('firmas')->where('activo', 1)->first();
 
         $datos = $query->get();
         $promedio_global = $datos->avg('resultado') ?? 0;
 
-        $pdf = Pdf::loadView('informes.pdf_individual', ['datos' => $datos, 'empleado' => $empleado, 'anio' => $request->anio, 'promedio_global' => $promedio_global]);
+        $pdf = Pdf::loadView('informes.pdf_individual', ['datos' => $datos, 'empleado' => $empleado, 'anio' => $request->anio, 'promedio_global' => $promedio_global, 'firma' => $firma]);
         return $pdf->download("Evaluacion_{$empleado->nombre}_{$empleado->apellido}.pdf");
     }
 
