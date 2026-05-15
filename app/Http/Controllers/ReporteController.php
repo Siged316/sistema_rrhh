@@ -357,4 +357,28 @@ class ReporteController extends Controller
         );
     }
 
+    // --- SECCIÓN GRÁFICAS ---
+
+    public function indexGraficas()
+    {
+    // Aquí puedes obtener los datos necesarios para las gráficas
+    // Por ahora, solo retornamos la vista en la nueva carpeta
+    return view('informes.graficas.index');
+    }
+
+    public function graficaDeptos() {
+    return view('informes.graficas.departamentos'); 
+}
+
+public function graficaIndividual() {
+    return view('informes.graficas.individual');
+}
+
+public function graficaAsistencias() {
+    return view('informes.graficas.asistencias');
+}
+
+public function graficaCompensatorio() { 
+    return view('informes.graficas.compensatorio'); 
+    }
 }

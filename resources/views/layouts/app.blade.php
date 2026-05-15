@@ -329,10 +329,9 @@
                             Informes y Estadísticas
                         </a>
 
-                        <a href="#"
-                           class="submenu-item">
+                        <a href="{{ route('informes.graficas.index') }}" class="submenu-item">
+                            Gráficas Comparativas
 
-                            Dashboards
                         </a>
                     </div>
                 </div>

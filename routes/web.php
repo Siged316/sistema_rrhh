@@ -569,8 +569,20 @@ Route::prefix('informes')->middleware(['auth'])->group(function () {
    Route::get('/validar-permisos', [ReporteController::class, 'validarPermisos'])->name('informes.validar.permisos');
    Route::get('/permisos/pdf', [ReporteController::class, 'generarPermisosPdf'])->name('informes.permisos.pdf');
    Route::get('/informes/permisos/excel', [ReporteController::class, 'exportarPermisosExcel'])->name('informes.permisos.excel');
+
+   
 });
 
+// Grupo de rutas para Gráficas Comparativas
+Route::prefix('informes/graficas')->group(function () {
+    Route::get('/', [ReporteController::class, 'indexGraficas'])->name('informes.graficas.index');
+    
+    // Rutas específicas para tus 4 reportes
+    Route::get('/desempeno-depto', [ReporteController::class, 'graficaDepto'])->name('graficas.depto');
+    Route::get('/individual', [ReporteController::class, 'graficaIndividual'])->name('graficas.individual');
+    Route::get('/asistencias', [ReporteController::class, 'graficaAsistencias'])->name('graficas.asistencias');
+    Route::get('/compensatorio', [ReporteController::class, 'graficaCompensatorio'])->name('graficas.compensatorio');
+});
 
 /*
 |--------------------------------------------------------------------------
