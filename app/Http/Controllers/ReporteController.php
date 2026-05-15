@@ -74,14 +74,22 @@ class ReporteController extends Controller
     return $pdf->download("Reporte_Desempeño_{$departamento->nombre}.pdf");
   }
 
-    public function generarExcel(Request $request) {
-        $depto_id = $request->departamento_id;
-        $anio = $request->anio;
-        $departamento = Departamento::find($depto_id);
-        $nombreArchivo = "Desempeño_" . str_replace(' ', '_', $departamento->nombre) . "_{$anio}.xlsx";
+   public function generarExcel(Request $request) {
+    $depto_id = $request->departamento_id;
+    $anio = $request->anio;
+    $departamento = Departamento::find($depto_id);
+    
+    // Buscar la firma activa
+    $firma = DB::table('firmas')->where('activo', 1)->first();
 
-        return Excel::download(new ExportarDesempenoDepto($depto_id, $anio, $request->periodo, $request->mes), $nombreArchivo);
-    }
+    $nombreArchivo = "Desempeño_" . str_replace(' ', '_', $departamento->nombre) . "_{$anio}.xlsx";
+
+    // Pasar la firma como quinto parámetro
+    return Excel::download(
+        new ExportarDesempenoDepto($depto_id, $anio, $request->periodo, $request->mes, $firma), 
+        $nombreArchivo
+    );
+}
 
     public function validarDatos(Request $request) {
         $query = DB::table('asignacion_evaluaciones as ae')

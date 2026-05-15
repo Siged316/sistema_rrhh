@@ -65,5 +65,27 @@
                 {{ number_format($promedio_depto, 2) }}%
             </th>
         </tr>
+
+        {{-- Filas de espacio para que quepa la firma --}}
+        <tr><td colspan="6" style="background-color: #ffffff;">&nbsp;</td></tr>
+        <tr><td colspan="6" style="background-color: #ffffff;">&nbsp;</td></tr>
+        <tr><td colspan="6" style="background-color: #ffffff;">&nbsp;</td></tr>
+        <tr><td colspan="6" style="background-color: #ffffff;">&nbsp;</td></tr>
+
+      {{-- Texto de Gestión de Talento Humano --}}
+        <tr>
+          <td style="background-color: #ffffff;"></td>
+           <td colspan="3" style="border-top: 2px solid #000000; text-align: center; font-weight: bold; background-color: #ffffff;">
+               GESTIÓN DE TALENTO HUMANO
+           </td>
+           <td style="background-color: #ffffff;"></td>
+          <td style="background-color: #ffffff;"></td>
+       </tr>
+       <tr>
+          <td style="background-color: #ffffff;"></td>
+          <td colspan="3" style="text-align: center; background-color: #ffffff;">GTH</td>
+          <td style="background-color: #ffffff;"></td>
+          <td style="background-color: #ffffff;"></td>
+       </tr>
     </tfoot>
 </table>
