@@ -579,6 +579,7 @@ Route::prefix('informes/graficas')->group(function () {
     
     // Rutas específicas para tus 4 reportes
     Route::get('/desempeno-depto', [ReporteController::class, 'graficaDepto'])->name('graficas.depto');
+    Route::get('/informes/graficas/datos-depto', [ReporteController::class, 'dataGraficaDepto'])->name('graficas.data.depto');
     Route::get('/individual', [ReporteController::class, 'graficaIndividual'])->name('graficas.individual');
     Route::get('/asistencias', [ReporteController::class, 'graficaAsistencias'])->name('graficas.asistencias');
     Route::get('/compensatorio', [ReporteController::class, 'graficaCompensatorio'])->name('graficas.compensatorio');

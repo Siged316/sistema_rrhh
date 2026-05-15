@@ -366,9 +366,57 @@ class ReporteController extends Controller
     return view('informes.graficas.index');
     }
 
-    public function graficaDeptos() {
-    return view('informes.graficas.departamentos'); 
-}
+    // Gráficas por depto
+    public function graficaDepto() {
+    $departamentos = Departamento::all();
+    
+    // Obtenemos los años de las evaluaciones para el filtro
+    $anios = DB::table('asignacion_evaluaciones')
+            ->selectRaw('YEAR(created_at) as anio')
+            ->distinct()
+            ->orderBy('anio', 'desc')
+            ->pluck('anio');
+
+    return view('informes.graficas.depto', compact('departamentos', 'anios'));
+    }
+
+    public function dataGraficaDepto(Request $request) {
+     $depto_ids = $request->departamento_ids;
+     $anio = $request->anio;
+     $mes = $request->mes;
+
+     // Obtenemos los departamentos para asegurar que salgan todos (incluso con 0)
+     $departamentos = Departamento::whereIn('id', $depto_ids)->get();
+
+     // Consulta de promedios
+     $query = DB::table('asignacion_evaluaciones as ae')
+         ->join('empleados as e', 'ae.empleado_id', '=', 'e.id')
+         ->select('e.departamento_id', DB::raw("AVG(ae.puntuacion_total) as promedio"))
+          ->whereIn('e.departamento_id', $depto_ids)
+         ->whereYear('ae.created_at', $anio); // Filtro de año obligatorio
+
+      // Filtro de mes solo si se recibe el parámetro
+      if ($request->filled('mes')) {
+          $query->whereMonth('ae.created_at', $mes);
+       }
+
+      $promedios = $query->groupBy('e.departamento_id')
+                       ->get()
+                       ->keyBy('departamento_id');
+
+      // Mapeo final
+      $dataFinal = $departamentos->map(function($depto) use ($promedios) {
+          return [
+             'nombre' => $depto->nombre,
+              'valor' => isset($promedios[$depto->id]) ? round($promedios[$depto->id]->promedio, 2) : 0
+            ];
+       });
+
+       return response()->json([
+         'labels' => $dataFinal->pluck('nombre'),
+         'valores' => $dataFinal->pluck('valor'),
+       ]);
+    }
 
 public function graficaIndividual() {
     return view('informes.graficas.individual');
