@@ -195,23 +195,32 @@
             return response.json();
         })
         .then(data => {
-            Swal.close(); // Cerrar el loading
+            Swal.close(); 
 
             if (data.count > 0) {
-                // 4. Si hay datos, construir la URL de descarga (PDF o Excel)
+                // 1. Definimos la ruta según el tipo
                 let rutaBase = (tipo === 'pdf') 
                     ? "{{ route('informes.compensatorio.pdf') }}" 
                     : "{{ route('informes.compensatorio.excel') }}";
                 
                 const params = `empleado_id=${empleado}&anio=${anio}&periodo=${periodo}&mes=${mes}`;
-                
-                // Abrir en pestaña nueva
-                window.open(`${rutaBase}?${params}`, '_blank');
+                const urlFinal = `${rutaBase}?${params}`;
+
+                // 2. LÓGICA DE DESCARGA SEGÚN FORMATO
+                if (tipo === 'pdf') {
+                    // Abrir PDF en pestaña nueva para previsualizar
+                    window.open(urlFinal, '_blank');
+                } else {
+                    // DESCARGA DIRECTA PARA EXCEL
+                    // Esto evita que se abra la pestaña blanca molesta
+                    window.location.href = urlFinal;
+                }
+
             } else {
-                // 5. Mensaje si la consulta viene vacía
+                // Mensaje si no hay registros
                 Swal.fire({
                     title: 'Sin registros',
-                    text: 'No se encontraron horas extras aprobadas para los criterios seleccionados.',
+                    text: 'No se encontraron horas extras aprobadas para este colaborador.',
                     icon: 'info',
                     confirmButtonColor: '#003366'
                 });

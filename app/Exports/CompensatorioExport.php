@@ -1,9 +1,6 @@
 <?php
 
-// Namespace donde se encuentra la clase de exportación
 namespace App\Exports;
-
-// Importaciones necesarias
 
 use Illuminate\Contracts\View\View;
 use Maatwebsite\Excel\Concerns\FromView;
@@ -12,8 +9,9 @@ use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use PhpOffice\PhpSpreadsheet\Worksheet\Drawing;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+use Illuminate\Support\Facades\DB;
 
-class CompensatorioExport implements FromView, WithDrawings, WithStyles, ShouldAutoSize
+class CompensatorioExport implements FromView, WithDrawings, ShouldAutoSize
 {
     protected $data;
 
@@ -21,58 +19,58 @@ class CompensatorioExport implements FromView, WithDrawings, WithStyles, ShouldA
         $this->data = $data;
     }
 
-   public function drawings()
-{
-    $drawings = [];
+    public function drawings()
+    {
+        $drawings = [];
 
-    // 1. Logo IHCI
-    if (file_exists(public_path('images/IHCI.png'))) {
-        $logo = new Drawing();
-        $logo->setName('Logo IHCI');
-        $logo->setPath(public_path('images/IHCI.png'));
-        $logo->setHeight(60);
-        $logo->setCoordinates('A1');
-        $drawings[] = $logo;
+        // 1. Logo IHCI
+        if (file_exists(public_path('images/IHCI.png'))) {
+            $logo = new Drawing();
+            $logo->setName('Logo IHCI');
+            $logo->setPath(public_path('images/IHCI.png'));
+            $logo->setHeight(60);
+            $logo->setCoordinates('A1');
+            $drawings[] = $logo;
+        }
+
+        // 2. Firma desde LONGBLOB (Cambiado para usar el objeto 'firma')
+        $firmaObj = $this->data['firma'] ?? null;
+
+        if ($firmaObj && $firmaObj->imagen_path) {
+            $imageData = $firmaObj->imagen_path;
+
+            // Si el LONGBLOB viene como recurso (stream), lo convertimos a string
+            if (is_resource($imageData)) {
+                $imageData = stream_get_contents($imageData);
+            }
+
+            // Creamos el archivo temporal
+            $tempPath = tempnam(sys_get_temp_dir(), 'firma_');
+            file_put_contents($tempPath, $imageData);
+
+            $firma = new Drawing();
+            $firma->setName('Firma Autorizada');
+            $firma->setPath($tempPath);
+            $firma->setHeight(60);
+            
+            // Calculamos la posición debajo de la tabla
+            // Usamos un mínimo de fila 25 para que no choque con los datos de arriba
+            $conteoRegistros = count($this->data['todosLosRegistros'] ?? []);
+            $filaBase = $conteoRegistros + 18; 
+            $puntoFinal = ($filaBase < 25) ? 20 : $filaBase;
+
+            $firma->setCoordinates('B' . $puntoFinal);
+            $firma->setOffsetX(50);
+            $firma->setOffsetY(-10); // Ajuste leve hacia arriba para que quede sobre la línea
+            
+            $drawings[] = $firma;
+        }
+
+        return $drawings;
     }
 
-    // 2. Firma desde LONGBLOB
-    if (!empty($this->data['firmaBlob'])) {
-        $tempPath = tempnam(sys_get_temp_dir(), 'firma_');
-        
-        // El LONGBLOB ya es binario, lo guardamos directamente
-        file_put_contents($tempPath, $this->data['firmaBlob']);
 
-        $firma = new Drawing();
-        $firma->setName('Firma Autorizada');
-        $firma->setPath($tempPath);
-        $firma->setHeight(80);
-        
-        // La colocamos debajo de la tabla de registros
-        $filaBase = count($this->data['todosLosRegistros']) + 18;
-        $firma->setCoordinates('B' . $filaBase);
-        $firma->setOffsetX(50);
-        
-        $drawings[] = $firma;
-    }
 
-    return $drawings;
-}
-
-public function styles(Worksheet $sheet)
-{
-    // Limpieza total del fondo azul en las celdas de datos
-    $sheet->getStyle('A11:E500')->getFill()->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_NONE);
-
-    return [
-        10 => [
-            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
-            'fill' => [
-                'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
-                'startColor' => ['rgb' => '003366']
-            ]
-        ],
-    ];
-}
     public function view(): View
     {
         return view('informes.compensatorio_excel', $this->data);
