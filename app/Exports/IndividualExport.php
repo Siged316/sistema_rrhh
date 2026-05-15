@@ -19,46 +19,62 @@ class IndividualExport implements FromView, WithDrawings
     protected $periodo_texto;
     protected $anio;
     protected $promedio_individual;
+    protected  $firma;
 
      // Constructor: recibe los parámetros necesarios para generar el reporte
-    public function __construct($empleado, $datos, $periodo_texto, $anio, $promedio_individual)
+    public function __construct($empleado, $datos, $periodo_texto, $anio, $promedio_individual, $firma)
     {
         $this->empleado = $empleado;
         $this->datos = $datos;
         $this->periodo_texto = $periodo_texto;
         $this->anio = $anio;
         $this->promedio_individual = $promedio_individual;
+         $this->firma = $firma;  // Guardamos la firma si aplica
     }
 
-     // Método encargado de insertar el logo en el archivo Excel
-    public function drawings()
+    // Método encargado de insertar el logo en el archivo Excel
+   public function drawings()
     {
-        // Creamos una nueva imagen
-        $drawing = new Drawing();
+    $drawings = [];
 
-        // Nombre interno de la imagen
-        $drawing->setName('Logo IHCI');
+    // 1. DIBUJO DEL LOGO
+    $logo = new Drawing();
+    $logo->setName('Logo IHCI');
+    $logo->setPath(public_path('images/IHCI.png')); 
+    $logo->setHeight(75);
+    $logo->setCoordinates('A1');
+    $logo->setOffsetX(10);
+    $logo->setOffsetY(10);
+    $drawings[] = $logo;
 
-        // Descripción de la imagen
-        $drawing->setDescription('Logo Institucional');
-        
-        // Ruta de la imagen dentro de la carpeta public/images
-        $drawing->setPath(public_path('images/IHCI.png')); 
-        
-        // Altura de la imagen
-        $drawing->setHeight(75);
+    // 2. DIBUJO DE LA FIRMA
+    if ($this->firma && $this->firma->imagen_path) {
+        $imageData = $this->firma->imagen_path;
 
-        // Celda donde se colocará el logo
-        $drawing->setCoordinates('A1');
-        
-        // Separación horizontal respecto al borde
-        $drawing->setOffsetX(10);
+        if (is_resource($imageData)) {
+            $imageData = stream_get_contents($imageData);
+        }
 
-        // Separación vertical respecto al borde
-        $drawing->setOffsetY(10);
+        $tempPath = tempnam(sys_get_temp_dir(), 'firma_');
+        file_put_contents($tempPath, $imageData);
+
+        $signature = new Drawing();
+        $signature->setName('Firma');
+        $signature->setPath($tempPath);
+        $signature->setHeight(50); // Un poquito más grande para que resalte
+
+        // CAMBIO CLAVE: Bajamos la firma a la fila 25
+        // Si la tabla es muy larga, puedes usar: 'B' . (count($datos) + 25)
+        $signature->setCoordinates('B27'); 
+
+        // Centrado manual dentro del bloque de firma
+        $signature->setOffsetX(50); 
+       
         
-        // Retornamos la imagen
-        return $drawing;
+        $drawings[] = $signature;
+    }
+
+    return $drawings;
     }
 
       // Método principal que genera la vista para el Excel

@@ -145,18 +145,37 @@ class ReporteController extends Controller
     }
 
     public function generarIndividualExcel(Request $request) {
-        $empleado = Empleado::findOrFail($request->empleado_id);
-        $query = DB::table('asignacion_evaluaciones as ae')
-            ->leftJoin('proyectos as p', 'ae.proyecto_id', '=', 'p.id')
-            ->select(DB::raw("COALESCE(p.nombre, ae.tipo) as actividad"), 'ae.created_at as fecha', 'ae.puntuacion_total as resultado')
-            ->where('ae.empleado_id', $request->empleado_id)
-            ->whereYear('ae.created_at', $request->anio);
+    $empleado = Empleado::findOrFail($request->empleado_id);
+    
+    $query = DB::table('asignacion_evaluaciones as ae')
+        ->leftJoin('proyectos as p', 'ae.proyecto_id', '=', 'p.id')
+        ->select(DB::raw("COALESCE(p.nombre, ae.tipo) as actividad"), 'ae.created_at as fecha', 'ae.puntuacion_total as resultado')
+        ->where('ae.empleado_id', $request->empleado_id)
+        ->whereYear('ae.created_at', $request->anio);
 
-        $periodo_texto = ($request->periodo == 'mensual' && $request->mes) ? "Mensual (" . $request->mes . ")" : "Anual Acumulado";
-        if ($request->periodo == 'mensual' && $request->mes) $query->whereMonth('ae.created_at', $request->mes);
+    $periodo_texto = ($request->periodo == 'mensual' && $request->mes) ? "Mensual (" . $request->mes . ")" : "Anual Acumulado";
+    
+    if ($request->periodo == 'mensual' && $request->mes) {
+        $query->whereMonth('ae.created_at', $request->mes);
+    }
 
-        $datos = $query->get();
-        return Excel::download(new IndividualExport($empleado, $datos, $periodo_texto, $request->anio, $datos->avg('resultado') ?? 0), "Reporte_Individual_{$empleado->apellido}.xlsx");
+    $datos = $query->get();
+
+    // 1. Buscamos la firma activa
+    $firma = DB::table('firmas')->where('activo', 1)->first();
+
+    // 2. Pasamos los 6 argumentos: agregamos $firma al final
+    return Excel::download(
+        new IndividualExport(
+            $empleado, 
+            $datos, 
+            $periodo_texto, 
+            $request->anio, 
+            $datos->avg('resultado') ?? 0, 
+            $firma 
+        ), 
+        "Reporte_Individual_{$empleado->apellido}.xlsx"
+    );
     }
 
     private function obtenerNombreMes($mes) {
