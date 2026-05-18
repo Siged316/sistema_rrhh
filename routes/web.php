@@ -593,8 +593,13 @@ Route::prefix('informes/graficas')->group(function () {
    Route::get('/informes/data-permisos', [ReporteController::class, 'dataGraficaPermisos'])
     ->name('graficas.data.permisos');
 
-    Route::get('/compensatorio', [ReporteController::class, 'graficaCompensatorio'])->name('graficas.compensatorio');
-});
+   // Vista de la gráfica de 
+   Route::get('/informes/grafica-compensatorio', [ReporteController::class, 'graficaCompensatorio'])
+    ->name('graficas.compensatorio');
+   Route::get('/informes/data-compensatorio', [ReporteController::class, 'dataGraficaCompensatorio'])
+    ->name('graficas.data.compensatorio');
+
+});  
 
 /*
 |--------------------------------------------------------------------------

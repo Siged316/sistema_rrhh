@@ -566,8 +566,73 @@ class ReporteController extends Controller
             'etiquetas' => $dataFinal->pluck('texto_pantalla'),
         ]);
     }
+    
 
-   public function graficaCompensatorio() { 
-    return view('informes.graficas.compensatorio'); 
+  // ==========================================
+  //  GRÁFICA DE TIEMPO COMPENSATORIO
+  // ==========================================
+    public function graficaCompensatorio() { 
+        $departamentos = Departamento::orderBy('nombre', 'asc')->get();
+        
+        // Copiado exacto de tu consulta nativa de años
+        $anios = DB::table('horas_extras')->selectRaw('YEAR(created_at) as anio')
+            ->union(DB::table('solicitudes')->selectRaw('YEAR(fecha_inicio) as anio'))
+            ->distinct()
+            ->orderBy('anio', 'desc')
+            ->pluck('anio');
+
+        if ($anios->isEmpty()) { 
+            $anios = collect([date('Y')]); 
+        }
+
+        return view('informes.graficas.compensatorio', compact('departamentos', 'anios')); 
     }
+
+   public function dataGraficaCompensatorio(Request $request) {
+        // Buscamos el empleado de forma segura
+        $empleado = DB::table('empleados')->where('id', $request->empleado_id)->first();
+        
+        if (!$empleado) {
+            return response()->json(['ganadas' => 0, 'usadas' => 0]);
+        }
+
+        $nombreExacto = $empleado->nombre . ' ' . $empleado->apellido;
+
+        // 1. HORAS GANADAS: Consulta a la tabla 'horas_extras'
+        $queryGanadas = DB::table('horas_extras')
+            ->where('empleado_id', $empleado->id)
+            ->where('estado', 'aprobado')
+            ->whereYear('created_at', $request->anio);
+
+        // 2. HORAS USADAS: Consulta a la tabla 'solicitudes'
+        $queryUsadas = DB::table('solicitudes')
+            ->where('nombre', $nombreExacto)
+            ->where('estado', 'aprobado')
+            ->where('tipo', 'A cuenta de tiempo compensatorio')
+            ->whereYear('fecha_inicio', $request->anio);
+
+        // Filtro de mes opcional
+        if ($request->periodo === 'mensual' && $request->filled('mes')) {
+            $queryGanadas->whereMonth('created_at', $request->mes);
+            $queryUsadas->whereMonth('fecha_inicio', $request->mes);
+        }
+
+        // SUMA DE HORAS GANADAS: Apuntando a tu columna exacta 'horas_acumuladas'
+        $totalGanadas = $queryGanadas->sum('horas_acumuladas') ?? 0; 
+        
+        // SUMA DE HORAS USADAS: Traemos las solicitudes y convertimos (días * 8) + horas sueltas
+        $solicitudes = $queryUsadas->select('dias', 'horas')->get();
+        $totalUsadas = $solicitudes->sum(function($s) {
+            $dias = $s->dias ?? 0;
+            $horas = $s->horas ?? 0;
+            return ($dias * 8) + $horas;
+        });
+
+        // Retornamos los datos listos para las barras de Chart.js
+        return response()->json([
+            'ganadas' => round($totalGanadas, 2),
+            'usadas'  => round($totalUsadas, 2)
+        ]);
+    }
+   
 }
