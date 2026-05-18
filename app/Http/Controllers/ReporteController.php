@@ -418,9 +418,51 @@ class ReporteController extends Controller
        ]);
     }
 
+    //Gráfica individual
 public function graficaIndividual() {
-    return view('informes.graficas.individual');
+    $departamentos = Departamento::orderBy('nombre', 'asc')->get();
+    $anios = DB::table('asignacion_evaluaciones')
+            ->selectRaw('YEAR(created_at) as anio')
+            ->distinct()
+            ->orderBy('anio', 'desc')
+            ->pluck('anio');
+
+    return view('informes.graficas.individual', compact('departamentos', 'anios'));
 }
+
+// Nueva función para filtrar empleados por depto (AJAX)
+public function getEmpleadosPorDepto($depto_id) {
+    // Traemos todos los campos para evitar errores de nombres
+    $empleados = DB::table('empleados')
+                ->where('departamento_id', $depto_id)
+                ->orderBy('nombre', 'asc')
+                ->get();
+    
+    return response()->json($empleados);
+}
+
+public function dataGraficaIndividual(Request $request) {
+    $query = DB::table('asignacion_evaluaciones as ae')
+        ->leftJoin('proyectos as p', 'ae.proyecto_id', '=', 'p.id')
+        ->select(
+            DB::raw("COALESCE(p.nombre, ae.tipo) as actividad"), 
+            'ae.puntuacion_total as resultado'
+        )
+        ->where('ae.empleado_id', $request->empleado_id)
+        ->whereYear('ae.created_at', $request->anio);
+
+    if ($request->filled('mes')) {
+        $query->whereMonth('ae.created_at', $request->mes);
+    }
+
+    $datos = $query->get();
+
+    return response()->json([
+        'labels' => $datos->pluck('actividad'),
+        'valores' => $datos->pluck('resultado'),
+    ]);
+}
+
 
 public function graficaAsistencias() {
     return view('informes.graficas.asistencias');
