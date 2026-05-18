@@ -104,7 +104,8 @@
                 {{-- BOTÓN DE ACCIÓN --}}
                 <div class="col-md-1">
                     <button class="btn btn-primary btn-block shadow" onclick="generarGraficaCompensatorio()">
-                        <i class="fas fa-chart-bar mr-1"></i> Gráfica
+                         <i class="fas fa-sync-alt mr-2"></i>
+                        Generar Gráfica
                     </button>
                 </div>
             </div>

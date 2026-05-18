@@ -103,7 +103,8 @@
                 {{-- BOTÓN GENERAR GRÁFICA --}}
                 <div class="col-md-1">
                     <button class="btn btn-primary btn-block shadow" onclick="generarGraficaPermisos()">
-                        <i class="fas fa-chart-bar mr-1"></i> Ver
+                         <i class="fas fa-sync-alt mr-2"></i>
+                        Generar Gráfica
                     </button>
                 </div>
             </div>

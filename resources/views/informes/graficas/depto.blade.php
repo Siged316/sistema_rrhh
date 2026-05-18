@@ -205,7 +205,7 @@
 
                         <i class="fas fa-sync-alt mr-2"></i>
 
-                        Generar Visualización
+                        Generar Gráfica
                     </button>
                 </div>
             </div>

@@ -168,9 +168,9 @@
                         onclick="generarGraficaIndividual()"
                     >
 
-                        <i class="fas fa-chart-line mr-1"></i>
+                        <i class="fas fa-sync-alt mr-2"></i>
 
-                        Graficar
+                        Generar Gráfica
                     </button>
                 </div>
             </div>
