@@ -588,9 +588,9 @@ Route::prefix('informes/graficas')->group(function () {
     Route::get('/informes/get-empleados/{depto_id}', [ReporteController::class, 'getEmpleadosPorDepto'])->name('get.empleados');
 
    // Vista de la gráfica de permisos
-Route::get('/informes/grafica-permisos', [ReporteController::class, 'graficaPermisos'])
+   Route::get('/informes/grafica-permisos', [ReporteController::class, 'graficaPermisos'])
     ->name('graficas.permisos');
-Route::get('/informes/data-permisos', [ReporteController::class, 'dataGraficaPermisos'])
+   Route::get('/informes/data-permisos', [ReporteController::class, 'dataGraficaPermisos'])
     ->name('graficas.data.permisos');
 
     Route::get('/compensatorio', [ReporteController::class, 'graficaCompensatorio'])->name('graficas.compensatorio');
