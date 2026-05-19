@@ -253,13 +253,23 @@
                         <span class="badge bg-warning text-dark rounded-pill">- {{ number_format($totalConsumidas, 2) }} h</span>
                     </div>
                     <div class="list-group-item d-flex justify-content-between align-items-center py-4 bg-light">
-                        <div>
-                            <span class="fw-bold fs-5 text-dark">Saldo Disponible Neto</span>
-                            <br><small class="text-muted">Horas aptas para solicitud de descanso</small>
-                        </div>
-                        <span class="fw-bold fs-4 text-danger">{{ number_format($saldoRestante, 2) }} h</span>
+                   <div>
+                     @if($saldoRestante >= 0)
+                         <span class="fw-bold fs-5 text-success">Saldo Disponible Neto</span>
+                         <br><small class="text-muted">Horas acumuladas.</small>
+                       @else
+                         <span class="fw-bold fs-5 text-danger">Horas a Deber </span>
+                         <br><br>
+                         <small class="text-muted">El empleado ha consumido más tiempo del acumulado.</small>
+                       @endif
                     </div>
+    
+                   <!-- El badge cambia de color dinámicamente según el valor -->
+                   <span class="fw-bold fs-4 badge {{ $saldoRestante >= 0 ? 'bg-success' : 'bg-danger' }} rounded-pill p-2 px-3">
+                     {{ number_format($saldoRestante, 2) }} h
+                  </span>
                 </div>
+                
                 <div class="p-3">
                     <div class="alert alert-warning border-0 mb-0 small shadow-sm">
                         <i class="fas fa-exclamation-circle me-2"></i> 

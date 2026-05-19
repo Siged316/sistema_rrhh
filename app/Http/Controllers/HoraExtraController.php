@@ -494,9 +494,18 @@ private function sumarHorasReloj($arreglo) {
             }
         }
     
-        $solicitudes = $queryRegistros->orderBy('created_at', 'desc')->paginate(5);
-        $pasosConfigurados = \DB::table('flujo_firmas_config')->where('activo', 1)->orderBy('id', 'asc')->get();
+       $solicitudes = $queryRegistros->orderByRaw("CASE 
+                WHEN estado = 'pendiente' THEN 1
+                WHEN estado = 'proceso' THEN 1
+                WHEN estado = 'aprobado' THEN 2
+                WHEN estado = 'rechazado' THEN 2
+                ELSE 3 
+            END ASC")
+            ->orderBy('created_at', 'desc') // Sub-ordenamiento: Las más nuevas de cada grupo primero
+            ->paginate(5);
 
+        $pasosConfigurados = \DB::table('flujo_firmas_config')->where('activo', 1)->orderBy('id', 'asc')->get();
+        
         return view('horas_extras.gestion', compact(
          'solicitudes', 'pasosConfigurados', 'totalAcumuladas', 'totalPagadas', 
          'totalConsumidas', 'totalPendientesSolicitud', 'saldoRestante', 
