@@ -25,108 +25,112 @@ use Carbon\Carbon;                      // Biblioteca para manejo de fechas
 class SolicitudController extends Controller
 {
      /**
- * MÉTODO: index
- * ---------------------------------
- * Lista solicitudes con filtros por rol + orden inteligente.
- */
-    public function index(Request $request)
-    {
-      $user = Auth::user();
-      $rol = trim($user->rol->nombre);
-      $empleadoId = $user->empleado->id ?? null;
-      $miDepto = $user->empleado->departamento->nombre ?? null;
-      $userEmail = $user->email;
+   * MÉTODO: index
+   * ---------------------------------
+   * Lista solicitudes con filtros por rol + orden inteligente.
+   */
+   public function index(Request $request)
+   {
+    $user = Auth::user();
 
-      $query = Solicitud::with('empleado');
+    $rol = strtolower(trim($user->rol->nombre ?? ''));
+    $empleadoId = $user->empleado->id ?? null;
+    $userEmail = strtolower(trim($user->email ?? ''));
 
-      // --- 1. FILTROS DE SEGURIDAD/VISIBILIDAD (Tu lógica original) ---
-      if ($rol === 'Administrador' || $rol === 'GTH') {
-          // Ven todo
-        } elseif ($rol === 'Jefe Inmediato') {
-         $query->where('departamento', $miDepto);
+    $query = Solicitud::query();
+
+    /*
+    |--------------------------------------------------------------------------
+    | ADMIN Y GTH VEN TODO
+    |--------------------------------------------------------------------------
+    */
+    if (
+        $rol === 'administrador' ||
+        $rol === 'gth'
+    ) {
+
+        // Ve todo
+
+    } else {
+
+        /*
+        |--------------------------------------------------------------------------
+        | BUSCAR DEPARTAMENTOS DONDE EL USUARIO ES JEFE
+        |--------------------------------------------------------------------------
+        */
+        $departamentosJefe = \App\Models\Departamento::where(
+            'jefe_empleado_id',
+            $empleadoId
+        )->pluck('nombre');
+
+        /*
+        |--------------------------------------------------------------------------
+        | SI ES JEFE DE ALGÚN DEPTO
+        |--------------------------------------------------------------------------
+        */
+        if ($departamentosJefe->count() > 0) {
+
+            $query->where(function ($q) use ($departamentosJefe, $userEmail) {
+
+                /*
+                |--------------------------------------------------------------------------
+                | VE SOLICITUDES DE SUS DEPARTAMENTOS
+                |--------------------------------------------------------------------------
+                */
+                $q->whereIn('departamento', $departamentosJefe)
+
+                /*
+                |--------------------------------------------------------------------------
+                | Y SUS PROPIAS SOLICITUDES
+                |--------------------------------------------------------------------------
+                */
+                ->orWhereRaw('LOWER(correo) = ?', [$userEmail]);
+            });
+
         } else {
-         $nombreUsuario = $user->empleado ? ($user->empleado->nombre . ' ' . $user->empleado->apellido) : null;
-         $query->where(function($q) use ($nombreUsuario, $userEmail) {
-             if (!empty(trim($nombreUsuario))) {
-                 $q->where('solicitudes.nombre', 'LIKE', '%' . trim($nombreUsuario) . '%');
-                }
-               $q->orWhere('solicitudes.correo', $userEmail);
-            });
+
+            /*
+            |--------------------------------------------------------------------------
+            | EMPLEADO NORMAL
+            |--------------------------------------------------------------------------
+            */
+            $query->whereRaw('LOWER(correo) = ?', [$userEmail]);
         }
-
-       // --- 2. NUEVO: FILTROS DEL BUSCADOR Y FECHAS ---
-    
-       // Filtro por nombre (Buscador)
-       if ($request->filled('search')) {
-          $query->where('solicitudes.nombre', 'LIKE', '%' . $request->search . '%');
-        }
-
-       // 1. Filtro por nombre fechas
-       if ($request->filled('search')) {
-         $query->where('solicitudes.nombre', 'LIKE', '%' . $request->search . '%');
-        }
-
-        // 2. Filtro por MES (Nuevo)
-       if ($request->filled('mes')) {
-          $query->where(function($q) use ($request) {
-              $q->whereMonth('solicitudes.fecha_inicio', $request->mes)
-              ->orWhereMonth('solicitudes.fecha_fin', $request->mes);
-            });
-        }
-
-       // 3. Filtro por RANGO DE FECHAS (El que ya teníamos)
-       if ($request->filled('fecha_rango')) {
-          $input = trim($request->fecha_rango);
-          try {
-              if (str_contains($input, ' to ')) {
-                  $partes = explode(' to ', $input);
-                  $inicio = \Carbon\Carbon::createFromFormat('d/m/Y', trim($partes[0]))->format('Y-m-d');
-                  $fin = \Carbon\Carbon::createFromFormat('d/m/Y', trim($partes[1]))->format('Y-m-d');
-
-                   $query->where(function($q) use ($inicio, $fin) {
-                      $q->whereBetween('solicitudes.fecha_inicio', [$inicio, $fin])
-                      ->orWhereBetween('solicitudes.fecha_fin', [$inicio, $fin]);
-                     });
-                } else {
-                  $fechaUnica = \Carbon\Carbon::createFromFormat('d/m/Y', $input)->format('Y-m-d');
-                   $query->where('solicitudes.fecha_inicio', '<=', $fechaUnica)
-                  ->where('solicitudes.fecha_fin', '>=', $fechaUnica);
-                }
-            } catch (\Exception $e) {
-              \Log::error("Error en fecha: " . $e->getMessage());
-            }
-        }
-        
-        $solicitudes = $query->leftJoin('departamentos', function($join) {
-            $join->on('solicitudes.departamento', '=', \DB::raw('departamentos.nombre COLLATE utf8mb4_unicode_ci'));
-        })
-        ->select('solicitudes.*')
-        ->orderByRaw("
-            CASE 
-                WHEN (departamentos.jefe_empleado_id = ? AND (SELECT COUNT(*) FROM solicitud_aprobaciones WHERE solicitud_id = solicitudes.id) = 0) THEN 1
-                WHEN (? = 'GTH' AND (SELECT COUNT(*) FROM solicitud_aprobaciones WHERE solicitud_id = solicitudes.id AND paso_orden = 1) = 1 
-                     AND (SELECT COUNT(*) FROM solicitud_aprobaciones WHERE solicitud_id = solicitudes.id AND paso_orden = 2) = 0) THEN 1
-                WHEN (SELECT COUNT(*) FROM solicitud_aprobaciones WHERE solicitud_id = solicitudes.id) = 1 
-                     AND solicitudes.estado != 'rechazado' THEN 2
-                WHEN (SELECT COUNT(*) FROM solicitud_aprobaciones WHERE solicitud_id = solicitudes.id) >= 2 
-                     OR solicitudes.estado = 'aprobado' THEN 3
-                ELSE 4
-            END ASC
-        ", [$empleadoId, $rol])
-        ->orderBy('solicitudes.created_at', 'desc')
-        ->paginate(10)
-        ->withQueryString();
-
-         return view('solicitudes.index', compact('solicitudes'));
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | FILTROS
+    |--------------------------------------------------------------------------
+    */
+    if ($request->filled('search')) {
 
-    /**
- * MÉTODO: store
- * ---------------------------------
- * Procesa y guarda una firma como imagen binaria.
- * Se utiliza cuando el usuario sube su firma.
- */
+        $query->where('nombre', 'LIKE', '%' . trim($request->search) . '%');
+    }
+
+    if ($request->filled('mes')) {
+
+        $query->where(function ($q) use ($request) {
+
+            $q->whereMonth('fecha_inicio', $request->mes)
+              ->orWhereMonth('fecha_fin', $request->mes);
+        });
+    }
+
+    $solicitudes = $query->orderBy('created_at', 'desc')
+                        ->paginate(10)
+                        ->withQueryString();
+
+    return view('solicitudes.index', compact('solicitudes'));
+   }
+
+
+   /**
+   * MÉTODO: store
+   * ---------------------------------
+   * Procesa y guarda una firma como imagen binaria.
+   * Se utiliza cuando el usuario sube su firma.
+   */
     public function show($id)
     {
       $solicitud = Solicitud::with('empleado', 'aprobaciones.firma')->findOrFail($id);
@@ -212,11 +216,11 @@ class SolicitudController extends Controller
     }
 
     /**
- * MÉTODO: store
- * ---------------------------------
- * Procesa y guarda una firma como imagen binaria.
- * Se utiliza cuando el usuario sube su firma.
- */
+    * MÉTODO: store
+    * ---------------------------------
+    * Procesa y guarda una firma como imagen binaria.
+    * Se utiliza cuando el usuario sube su firma.
+    */
     public function store(Request $request)
     {
       $request->validate([
@@ -271,115 +275,113 @@ class SolicitudController extends Controller
     }
 
     /**
- * MÉTODO: procesar
- * ---------------------------------
- * Gestiona aprobación o rechazo de solicitudes.
- * Controla flujo: Jefe → GTH.
- */
-    public function procesar(Request $request, $id)
-    {
-      try {
-         $solicitud = Solicitud::with('empleado')->findOrFail($id);
-         $user = auth()->user();
-         $empleado = $user->empleado;
+    * MÉTODO: procesar
+    * ---------------------------------
+    * Gestiona aprobación o rechazo de solicitudes.
+    * Controla flujo: Jefe → GTH.
+    */
+  public function procesar(Request $request, $id)
+  {
+    try {
+        $solicitud = Solicitud::with('empleado')->findOrFail($id);
+        $user = auth()->user();
+        $empleado = $user->empleado;
+ 
+        $rolUsuario = ($user->rol) ? $user->rol->nombre : 'SIN ROL';
+        $deptoUser = $empleado ? $empleado->departamento_id : null;
 
-         // Rol nominal
-         $rolUsuario = ($user->rol) ? $user->rol->nombre : 'SIN ROL';
+        // Leemos los campos normales del formulario POST
+        $estado = $request->input('estado', 'aprobado');
+        $observacionesRecibidas = $request->input('observaciones', '');
 
-         // Departamento del usuario y de la solicitud
-         $deptoUser = $empleado ? $empleado->departamento_id : null;
-         $deptoSol  = $solicitud->empleado ? $solicitud->empleado->departamento_id : null;
+        $esJefeDepto = \App\Models\Departamento::where('id', $deptoUser)
+            ->where('jefe_empleado_id', $empleado->id)
+            ->exists();
 
-         $estado = $request->estado ?? 'aprobado';
+        /* ======================================
+           ACCION: APROBADO
+        ====================================== */
+        if ($estado == 'aprobado') {
 
-            if ($estado == 'aprobado') {
-
-              // Verificar que el usuario tenga firma activa
-              $firmaActiva = \App\Models\Firma::where('empleado_id', $empleado->id)
+            $firmaActiva = \App\Models\Firma::where('empleado_id', $empleado->id)
                                 ->where('activo', 1)
                                 ->first();
-               if (!$firmaActiva) {
-                  return response()->json(['success'=>false,'message'=>'No tienes firma activa.']);
+            if (!$firmaActiva) {
+                return redirect()->back()->with('error', 'No tienes firma activa.');
+            }
+
+            $rol_aprobacion = null;
+            $paso = null;
+
+            if ($esJefeDepto) {
+                if ($solicitud->aprobaciones()->where('rol_nombre','Jefe Inmediato')->exists()) {
+                    return redirect()->back()->with('error', 'La solicitud ya tiene la firma del Jefe Inmediato.');
                 }
+                $rol_aprobacion = 'Jefe Inmediato';
+                $paso = 1;
 
-               $rol_aprobacion = null;
-               $paso = null;
-
-               // Determinar si es Jefe de este departamento
-               $esJefeDepto = \App\Models\Departamento::where('id', $deptoUser)
-                            ->where('jefe_empleado_id', $empleado->id)
-                            ->exists();
-
-                if ($esJefeDepto) {
-                   // Jefe de depto firma como "Jefe Inmediato"
-                   if ($solicitud->aprobaciones()->where('rol_nombre','Jefe Inmediato')->exists()) {
-                      return response()->json(['success'=>false,'message'=>'La solicitud ya tiene la firma del Jefe Inmediato.']);
-                    }
-                   $rol_aprobacion = 'Jefe Inmediato';
-                   $paso = 1;
-
-                } elseif (strtolower($rolUsuario) == 'gth') {
-                  // GTH solo puede firmar si el jefe ya firmó
-                   if (!$solicitud->aprobaciones()->where('rol_nombre','Jefe Inmediato')->exists()) {
-                      return response()->json(['success'=>false,'message'=>'La solicitud requiere la firma del Jefe Inmediato antes que RRHH.']);
-                    }
+            } elseif (strtolower($rolUsuario) == 'gth') {
+                if (!$solicitud->aprobaciones()->where('rol_nombre','Jefe Inmediato')->exists()) {
+                    return redirect()->back()->with('error', 'La solicitud requiere la firma del Jefe Inmediato antes que RRHH.');
+                }
               
-                  if ($solicitud->aprobaciones()->where('rol_nombre','GTH')->exists()) {
-                      return response()->json(['success'=>false,'message'=>'La solicitud ya tiene la firma de GTH.']);
-                    }
-                   $rol_aprobacion = 'GTH';
-                   $paso = 2;
-
-                } else {
-                 return response()->json(['success'=>false,'message'=>'No tienes permiso para firmar esta solicitud.']);
+                if ($solicitud->aprobaciones()->where('rol_nombre','GTH')->exists()) {
+                    return redirect()->back()->with('error', 'La solicitud ya tiene la firma de GTH.');
                 }
+                $rol_aprobacion = 'GTH';
+                $paso = 2;
 
-               // Crear registro de aprobación
-               $solicitud->aprobaciones()->create([
-                 'user_id'    => $user->id,
-                 'firma_id'   => $firmaActiva->id,
-                 'rol_nombre' => $rol_aprobacion,
-                 'paso_orden' => $paso,
-                ]);
-
-               // Determinar el estado de la solicitud
-                if ($solicitud->aprobaciones()->whereIn('rol_nombre',['Jefe Inmediato','GTH'])->count() == 2) {
-                  $solicitud->estado = 'aprobado';
-                } else {
-                  $solicitud->estado = 'en proceso';
-                }
-
-                $solicitud->save();
-
-                return response()->json(['success'=>true,'message'=>'Firma aplicada correctamente.']);
+            } else {
+                return redirect()->back()->with('error', 'No tienes permiso para firmar esta solicitud.');
             }
 
-           // Rechazo de solicitud
-           elseif ($estado == 'rechazado') {
+            $solicitud->aprobaciones()->create([
+                'user_id'    => $user->id,
+                'firma_id'   => $firmaActiva->id,
+                'rol_nombre' => $rol_aprobacion,
+                'paso_orden' => $paso,
+            ]);
 
-                if ($esJefeDepto || strtolower($rolUsuario) == 'gth') {
-                  $solicitud->estado = 'rechazado';
-                   $solicitud->observaciones = $request->observaciones ?? '';
-                  $solicitud->aprobaciones()->delete();
-                  $solicitud->save();
-                  return response()->json(['success'=>true,'message'=>'Solicitud rechazada.']);
-                }
-
-               return response()->json(['success'=>false,'message'=>'No tienes autoridad para rechazar.']);
+            if ($solicitud->aprobaciones()->whereIn('rol_nombre',['Jefe Inmediato','GTH'])->count() == 2) {
+                $solicitud->estado = 'aprobado';
+            } else {
+                $solicitud->estado = 'en proceso';
             }
 
-           return response()->json(['success'=>false,'message'=>'Acción inválida.']);
+            $solicitud->save();
 
-        } catch (\Exception $e) {
-           return response()->json(['success'=>false,'message'=>'Error interno: '.$e->getMessage()]);
+            return redirect()->back()->with('success', 'Firma aplicada correctamente.');
         }
+
+        /* ======================================
+           ACCION: RECHAZADO
+        ====================================== */
+        elseif ($estado == 'rechazado') {
+
+            if ($esJefeDepto || strtolower($rolUsuario) == 'gth') {
+                $solicitud->estado = 'rechazado';
+                $solicitud->observaciones = $observacionesRecibidas;
+                $solicitud->aprobaciones()->delete();
+                $solicitud->save();
+                
+                return redirect()->back()->with('success', 'Solicitud rechazada con éxito.');
+            }
+
+            return redirect()->back()->with('error', 'No tienes autoridad para rechazar.');
+        }
+
+        return redirect()->back()->with('error', 'Acción inválida.');
+
+    } catch (\Exception $e) {
+        return redirect()->back()->with('error', 'Error interno: '.$e->getMessage());
     }
+   }
 
     /**
- * MÉTODO: accionar
- * ---------------------------------
- * Maneja firmas de forma más directa (flujo simplificado).
- */
+    * MÉTODO: accionar
+    * ---------------------------------
+    * Maneja firmas de forma más directa (flujo simplificado).
+    */
 
     public function accionar(Request $request, $id)
     {
@@ -454,12 +456,11 @@ class SolicitudController extends Controller
         }
     }
 
-
-        /**
- * MÉTODO: rectificarTipo
- * ---------------------------------
- * Cambia el tipo de solicitud y ajusta saldos (crítico en RRHH)
- */
+    /**
+    * MÉTODO: rectificarTipo
+   * ---------------------------------
+   * Cambia el tipo de solicitud y ajusta saldos (crítico en RRHH)
+   */
 
     public function rectificarTipo(Request $request, $id)
     {
@@ -502,11 +503,11 @@ class SolicitudController extends Controller
         return back()->with('success', 'Cambios aplicados correctamente.');
     }
 
-        /**
- * MÉTODO: update
- * ---------------------------------
- * Actualizar datos.
- */
+    /**
+    * MÉTODO: update
+    * ---------------------------------
+    * Actualizar datos.
+    */
 
     public function update(Request $request, $id)
     {
@@ -533,10 +534,10 @@ class SolicitudController extends Controller
     }
 
     /**
- * MÉTODO: updateDetalles
- * ---------------------------------
- * Guarda los detalles editables (contenteditable).
- */
+    * MÉTODO: updateDetalles
+    * ---------------------------------
+    * Guarda los detalles editables (contenteditable).
+    */
     public function updateDetalles(Request $request, $id)
     {
         try {
@@ -552,13 +553,13 @@ class SolicitudController extends Controller
     }
 
     /**
- * MÉTODO: calculoPermanente
- * ---------------------------------
- * Calcula:
- * - Derecho histórico
- * - Días gozados
- * - Saldo actual
- */
+    * MÉTODO: calculoPermanente
+    * ---------------------------------
+    * Calcula:
+    * - Derecho histórico
+    * - Días gozados
+    * - Saldo actual
+    */
     public function calculoPermanente($empleadoId)
     {
         $empleado = Empleado::findOrFail($empleadoId);

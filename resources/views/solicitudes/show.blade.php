@@ -1,13 +1,11 @@
- <div id="contenedor-principal-show">
+<div id="contenedor-principal-show">
 
    <div id="area-impresion-final" style="background:white;padding:30px;color:black;font-family:sans-serif;">
+       {{-- ENCABEZADO OFICIAL --}}
 
-    
-    {{-- ENCABEZADO OFICIAL --}}
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px; border: 1.5px solid black;">
 
-    <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px; border: 1.5px solid black;">
-
-        <tr>
+          <tr>
 
             <td rowspan="4" style="width: 20%; border: 1px solid black; text-align: center; padding: 10px;">
 
@@ -21,9 +19,9 @@
 
             <td style="border: 1px solid black; text-align: center; width: 20%; font-size: 11px;">FT-GTH-001</td>
 
-        </tr>
+          </tr>
 
-        <tr>
+          <tr>
 
             <td rowspan="3" style="border: 1px solid black; text-align: center; font-weight: bold; font-size: 14px;">SOLICITUD DE PERMISO</td>
 
@@ -31,49 +29,48 @@
 
             <td style="border: 1px solid black; text-align: center; font-size: 11px;">2</td>
 
-        </tr>
+          </tr>
 
-        <tr>
+          <tr>
 
             <td style="border: 1px solid black; text-align: center; font-weight: bold; font-size: 10px;">VIGENTE DESDE</td>
 
             <td style="border: 1px solid black; text-align: center; font-size: 11px;">21/2/2024</td>
 
-        </tr>
+          </tr>
 
-        <tr>
+         <tr>
 
             <td colspan="2" style="border: 1px solid black; text-align: center; font-weight: bold; font-size: 10px;">PÁGINA 1 DE 1</td>
 
-        </tr>
+         </tr>
 
-    </table>
+        </table>
 
    
-    {{-- CUERPO DE DATOS --}}
-    <div style="margin-top: 15px; font-size: 12px; font-family: Arial, sans-serif;">
-    
-       {{-- FILA: LUGAR Y FECHA --}}
-      <div style="display: flex; align-items: flex-end; margin-bottom: 12px;">
-          <span style="font-weight: bold; white-space: nowrap; width: 140px; padding-bottom: 2px;">Lugar y fecha:</span>
-          <div style="flex: 1; border-bottom: 1px solid black; padding-left: 5px; padding-bottom: 2px;">
-              {{ $solicitud->lugar ?? 'Tegucigalpa, M.D.C.' }}, 
-              {{ \Carbon\Carbon::parse($solicitud->created_at)->format('d/m/Y') }}
+       {{-- CUERPO DE DATOS --}}
+      <div style="margin-top: 15px; font-size: 12px; font-family: Arial, sans-serif;">
+         {{-- FILA: LUGAR Y FECHA --}}
+          <div style="display: flex; align-items: flex-end; margin-bottom: 12px;">
+             <span style="font-weight: bold; white-space: nowrap; width: 140px; padding-bottom: 2px;">Lugar y fecha:</span>
+             <div style="flex: 1; border-bottom: 1px solid black; padding-left: 5px; padding-bottom: 2px;">
+                 {{ $solicitud->lugar ?? 'Tegucigalpa, M.D.C.' }}, 
+                  {{ \Carbon\Carbon::parse($solicitud->created_at)->format('d/m/Y') }}
+               </div>
           </div>
-      </div>
 
-      {{-- FILA: SOLICITANTE --}}
-       <div style="display: flex; align-items: flex-end; margin-bottom: 12px;">
-         <span style="font-weight: bold; white-space: nowrap; width: 140px; padding-bottom: 2px;">Solicitante:</span>
-         <div style="flex: 1; border-bottom: 1px solid black; padding-left: 5px; padding-bottom: 2px;">
-             {{ strtoupper($solicitud->empleado?->nombre ?? $solicitud->nombre) }} {{ strtoupper($solicitud->empleado?->apellido ?? '') }}
-          </div>
-       </div>
+           {{-- FILA: SOLICITANTE --}}
+           <div style="display: flex; align-items: flex-end; margin-bottom: 12px;">
+              <span style="font-weight: bold; white-space: nowrap; width: 140px; padding-bottom: 2px;">Solicitante:</span>
+              <div style="flex: 1; border-bottom: 1px solid black; padding-left: 5px; padding-bottom: 2px;">
+                  {{ strtoupper($solicitud->empleado?->nombre ?? $solicitud->nombre) }} {{ strtoupper($solicitud->empleado?->apellido ?? '') }}
+              </div>
+           </div>
 
-       {{-- FILA: CARGO --}}
-       <div style="display: flex; align-items: flex-end; margin-bottom: 12px;">
-          <span style="font-weight: bold; white-space: nowrap; width: 140px; padding-bottom: 2px;">Cargo del solicitante:</span>
-        <div style="flex: 1; border-bottom: 1px solid black; padding-left: 5px; padding-bottom: 2px;">
+           {{-- FILA: CARGO --}}
+           <div style="display: flex; align-items: flex-end; margin-bottom: 12px;">
+              <span style="font-weight: bold; white-space: nowrap; width: 140px; padding-bottom: 2px;">Cargo del solicitante:</span>
+            <div style="flex: 1; border-bottom: 1px solid black; padding-left: 5px; padding-bottom: 2px;">
             {{ strtoupper($solicitud->empleado?->cargo ?? 'TÉCNICO') }}
         </div>
     </div>
@@ -257,7 +254,7 @@
 {{-- FIRMAS --}}
 
 <div style="font-weight: bold; margin-bottom: 10px;">Autorización:</div>
-@php
+  @php
     $firmaSolicitante = \App\Models\Firma::where('empleado_id', $solicitud->empleado_id)->where('activo',1)->first();
     $firmaJefe = $solicitud->aprobaciones->where('paso_orden',1)->first();
     $firmaGTH = $solicitud->aprobaciones->where('paso_orden',2)->first();
@@ -267,9 +264,9 @@
     $esJefe = \App\Models\Departamento::where('nombre',$solicitud->departamento)
                     ->where('jefe_empleado_id',$empleado->id)->exists();
     $esGTH = strtolower($user->rol->nombre) == 'gth';
-@endphp
+  @endphp
 
-<table style="width:100%;margin-top:40px;text-align:center;border-collapse:collapse;table-layout:fixed;">
+  <table style="width:100%;margin-top:40px;text-align:center;border-collapse:collapse;table-layout:fixed;">
     <tr>
         {{-- SOLICITANTE --}}
         <td>
@@ -313,28 +310,58 @@
             </div>
         </td>
     </tr>
-</table>
+  </table>
 
-{{-- BOTONES DE FIRMA --}}
-<div class="text-center mt-4">
+   {{-- BOTONES DE FIRMA DEFINITIVOS CON ONCLICK DIRECTO --}}
+   <div class="text-center mt-4">
+    {{-- BLOQUE DEL JEFE INMEDIATO --}}
     @if($esJefe && (!$firmaJefe || !$firmaJefe->firma))
-         <button class="btn btn-primary btn-sm" data-firma="jefe">Firmar como Jefe</button>
+        <div class="d-inline-block">
+            <form action="{{ route('solicitudes.procesar', $solicitud->id) }}" method="POST" class="d-inline">
+                @csrf
+                <input type="hidden" name="estado" value="aprobado">
+                <button type="submit" class="btn btn-primary btn-sm mx-1">Firmar como Jefe</button>
+            </form>
+
+            <form action="{{ route('solicitudes.procesar', $solicitud->id) }}" method="POST" class="d-inline" 
+                  onsubmit="let motivo = prompt('Por favor, ingrese el motivo del rechazo (Obligatorio):'); if(!motivo){ return false; } this.observaciones.value = motivo; return true;">
+                @csrf
+                <input type="hidden" name="estado" value="rechazado">
+                <input type="hidden" name="observaciones" value="">
+                <button type="submit" class="btn btn-danger btn-sm mx-1">Rechazar</button>
+            </form>
+        </div>
     @endif
 
+    {{-- BLOQUE DE GESTIÓN DE TALENTO HUMANO --}}
     @if($esGTH && (!$firmaGTH || !$firmaGTH->firma))
-        <button class="btn btn-success btn-sm" data-firma="gth">Firmar como GTH</button>
-    @endif
-</div>
+        <div class="d-inline-block">
+            <form action="{{ route('solicitudes.procesar', $solicitud->id) }}" method="POST" class="d-inline">
+                @csrf
+                <input type="hidden" name="estado" value="aprobado">
+                <button type="submit" class="btn btn-success btn-sm mx-1">Firmar como GTH</button>
+            </form>
 
-<div style="margin-top: 60px; font-size: 10px; color: black; font-style: italic; text-align: center;">
+            <form action="{{ route('solicitudes.procesar', $solicitud->id) }}" method="POST" class="d-inline"
+                  onsubmit="let motivo = prompt('Por favor, ingrese el motivo del rechazo (Obligatorio):'); if(!motivo){ return false; } this.observaciones.value = motivo; return true;">
+                @csrf
+                <input type="hidden" name="estado" value="rechazado">
+                <input type="hidden" name="observaciones" value="">
+                <button type="submit" class="btn btn-danger btn-sm mx-1">Rechazar</button>
+            </form>
+        </div>
+    @endif
+   </div>
+
+   <div style="margin-top: 60px; font-size: 10px; color: black; font-style: italic; text-align: center;">
 
     Original: Gestión de Talento Humano / Copia: Expediente colaborador
 
-</div>
+   </div>
 
-{{-- BOTÓN CON LÓGICA REPARADA E INTEGRADA --}}
+   {{-- BOTÓN CON LÓGICA REPARADA E INTEGRADA --}}
 
-<div style="text-align: right; padding: 15px; background: #f8f9fa; border-top: 1px solid #ddd;" class="no-print">
+   <div style="text-align: right; padding: 15px; background: #f8f9fa; border-top: 1px solid #ddd;" class="no-print">
 
        
 
@@ -375,40 +402,66 @@
         </button>
 
     </div>
+   </div>
+
 </div>
 
- {{-- LÓGICA DEL CUADRO DEL DETALLE  --}}
+{{-- LÓGICA UNIFICADA PARA APERTURA DE MODAL --}}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const caja = document.getElementById('cuadro-detalles');
+function procesarFirmaModal(e, accion, estado) {
+    // Frenamos en seco cualquier envío o redirección nativa del formulario
+    if(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
 
-        // Cada vez que el usuario haga clic fuera del cuadro
-        caja.addEventListener('blur', function() {
-            const id = "{{ $solicitud->id }}"; // Laravel pone el ID aquí
-            const contenido = this.innerText;  // El texto que escribiste
+    let observaciones = '';
 
-            console.log("Detectado cambio. Guardando ID " + id + "...");
+    // Si es un rechazo, forzamos la captura del motivo
+    if (estado === 'rechazado') {
+        observaciones = prompt('Por favor, ingrese el motivo del rechazo (Obligatorio):');
+        if (observaciones === null) return; // Si cancela, no hace nada
+        if (observaciones.trim() === '') {
+            alert('Debe especificar un motivo para poder rechazar la solicitud.');
+            return;
+        }
+    }
 
-            fetch(`/solicitudes/${id}/update-detalles`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify({ detalles: contenido })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if(data.success) {
-                    console.log("✅ Guardado exitoso en BD");
-                } else {
-                    alert("No se pudo guardar: " + data.message);
-                }
-            })
-            .catch(err => console.error("❌ Error de conexión:", err));
-        });
+    // Buscamos el token CSRF disponible en el documento
+    const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}';
+
+    // Deshabilitamos el botón que originó el evento para evitar doble petición
+    if(e && e.target) {
+        e.target.disabled = true;
+    }
+
+    // Petición directa y limpia mediante fetch
+    fetch('/solicitudes/{{ $solicitud->id }}/procesar', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': token
+        },
+        body: JSON.stringify({
+            estado: estado,
+            observaciones: observaciones
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Ahora la respuesta sí saldrá en un alert controlado dentro de tu aplicación
+        alert(data.message);
+        if (data.success) {
+            location.reload(); // Recarga la vista para actualizar el estatus de la firma
+        } else {
+            if(e && e.target) e.target.disabled = false;
+        }
+    })
+    .catch(err => {
+        console.error("Error en la petición:", err);
+        alert('Ocurrió un inconveniente de red al procesar la solicitud.');
+        if(e && e.target) e.target.disabled = false;
     });
+}
 </script>
-
-</div>
