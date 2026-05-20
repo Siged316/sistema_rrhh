@@ -35,16 +35,19 @@
                     </div>
                 </div>
 
-                <div class="col-md-6">
-                    <label class="form-label fw-bold small">DNI / IDENTIDAD:</label>
-                    <input type="text"
-                        name="dni"
-                        class="form-control shadow-sm @error('dni') is-invalid @enderror"
-                        value="{{ old('dni') }}"
-                        placeholder="0000-0000-00000"
-                        required>
-                    @error('dni')
-                        <div class="invalid-feedback">{{ $message }}</div>
+               <div class="col-md-6">
+                 <label class="form-label fw-bold small">DNI / IDENTIDAD:</label>
+                  <input type="text"
+                     id="dni"
+                      name="dni"
+                      class="form-control shadow-sm @error('dni') is-invalid @enderror"
+                       value="{{ old('dni') }}"
+                      placeholder="0000-0000-00000"
+                       maxlength="15"
+                       oninput="formatearDNI(this)"
+                     required>
+                   @error('dni')
+                     <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
                 </div>
 
@@ -78,19 +81,21 @@
                         required>
                 </div>
 
-                <div class="col-md-6">
-                    <label class="form-label fw-bold small">CONTACTO:</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light">
-                            <i class="fa-solid fa-phone text-muted small"></i>
-                        </span>
-                        <input type="text"
-                            name="contacto"
-                            class="form-control shadow-sm"
-                            value="{{ old('contacto') }}"
-                            placeholder="Ej. 9988-7766">
-                    </div>
-                </div>
+               <div class="col-md-6">
+                 <label class="form-label fw-bold small">CONTACTO:</label>
+                  <div class="input-group">
+                     <span class="input-group-text bg-light">
+                          <i class="fa-solid fa-phone text-muted small"></i>
+                     </span>
+                     <input type="text"
+                     name="contacto"
+                     class="form-control shadow-sm"
+                     value="{{ old('contacto') }}"
+                     placeholder="Ej. 9988-7766"
+                      maxlength="9"
+                     oninput="formatearTelefono(this)">
+                  </div>
+               </div>
 
                 <div class="col-md-6">
                     <label class="form-label fw-bold small">FECHA NACIMIENTO:</label>
@@ -233,6 +238,52 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+//Función para el DNI
+function formatearDNI(input) {
+    // 1. Remover cualquier carácter que no sea un número
+    let valor = input.value.replace(/\D/g, '');
+    
+    // 2. Ir armando la estructura con los guiones según el largo del texto
+    let valorFormateado = '';
+    
+    if (valor.length > 0) {
+        // Primer bloque: depto y municipio (4 dígitos)
+        valorFormateado += valor.substring(0, 4);
+    }
+    if (valor.length > 4) {
+        // Segundo bloque: año (4 dígitos)
+        valorFormateado += '-' + valor.substring(4, 8);
+    }
+    if (valor.length > 8) {
+        // Tercer bloque: correlativo (5 dígitos)
+        valorFormateado += '-' + valor.substring(8, 13);
+    }
+    
+    // 3. Asignar el valor formateado de vuelta al input
+    input.value = valorFormateado;
+}
+
+//Función para el contacto
+function formatearTelefono(input) {
+    // 1. Remover cualquier cosa que no sea número
+    let valor = input.value.replace(/\D/g, '');
+    
+    // 2. Armar el formato 0000-0000
+    let valorFormateado = '';
+    
+    if (valor.length > 0) {
+        // Primeros 4 dígitos
+        valorFormateado += valor.substring(0, 4);
+    }
+    if (valor.length > 4) {
+        // Guion y los últimos 4 dígitos
+        valorFormateado += '-' + valor.substring(4, 8);
+    }
+    
+    // 3. Devolver el texto formateado al input
+    input.value = valorFormateado;
+}
 </script>
 
 {{-- Reapertura del Offcanvas en caso de errores de validación --}}

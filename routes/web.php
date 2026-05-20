@@ -230,39 +230,6 @@ Route::middleware(['auth', 'force.password.change'])->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | TIEMPO COMPENSATORIO
-    |--------------------------------------------------------------------------
-    */
-
-    Route::prefix('tiempo-compensatorio')->group(function () {
-
-        // Listado
-        Route::get('/', [TiempoCompensatorioController::class, 'index'])
-            ->name('tiempo_compensatorio.index');
-
-        // Formulario crear
-        Route::get('/crear', [TiempoCompensatorioController::class, 'create'])
-            ->name('tiempo_compensatorio.create');
-
-        // Guardar
-        Route::post('/store', [TiempoCompensatorioController::class, 'store'])
-            ->name('tiempo_compensatorio.store');
-
-        // Mostrar detalle
-        Route::get('/{id}', [TiempoCompensatorioController::class, 'show'])
-            ->name('tiempo_compensatorio.show');
-
-        // Eliminar
-        Route::delete('/{id}', [TiempoCompensatorioController::class, 'destroy'])
-            ->name('tiempo_compensatorio.destroy');
-
-        // Historial del empleado
-        Route::get('historial-empleado/{empleado_id}', [TiempoCompensatorioController::class, 'getHistorialHtml']);
-    });
-
-
-    /*
-    |--------------------------------------------------------------------------
     | HORAS EXTRAS
     |--------------------------------------------------------------------------
     */
