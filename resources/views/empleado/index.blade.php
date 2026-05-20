@@ -155,15 +155,40 @@
                             </td>
 
                             {{-- Celda: Documento --}}
+
                             <td class="text-center">
-                                @if($empleado->documentos && $empleado->documentos->count() > 0)
-                                    <a href="{{ asset('storage/' . str_replace(['public/', 'storage/'], '', $empleado->documentos->first()->ruta_archivo)) }}" target="_blank">
-                                        <i class="fa-solid fa-file-pdf text-danger fa-xl"></i>
+                              @if($empleado->documentos && $empleado->documentos->count() > 0)
+                                  @php
+                                      $primerDoc = $empleado->documentos->first();
+                                      $extension = strtolower(pathinfo($primerDoc->ruta_archivo, PATHINFO_EXTENSION));
+            
+                                      // 1. Limpiamos "public/" o "storage/" por si acaso
+                                      $pathLimpio = str_replace(['public/', 'storage/'], '', $primerDoc->ruta_archivo);
+            
+                                      // 2. CORRECCIÓN PARA WINDOWS: Convertimos cualquier barra invertida \ en barra normal /
+                                      $pathLimpio = str_replace('\\', '/', $pathLimpio);
+            
+                                     // 3. Construimos la URL final perfecta
+                                     $rutaWeb = asset('storage/' . $pathLimpio);
+                                   @endphp
+                         
+                                  <a href="{{ $rutaWeb }}" target="_blank" title="Ver/Descargar {{ $primerDoc->nombre_archivo }}">
+                                      @if($extension == 'pdf')
+                                         <i class="fa-solid fa-file-pdf text-danger fa-xl"></i>
+                                        @elseif(in_array($extension, ['doc', 'docx']))
+                                          <i class="fa-solid fa-file-word text-primary fa-xl"></i>
+                                        @elseif(in_array($extension, ['xls', 'xlsx']))
+                                         <i class="fa-solid fa-file-excel text-success fa-xl"></i>
+                                       @elseif(in_array($extension, ['jpg', 'jpeg', 'png']))
+                                          <i class="fa-solid fa-file-image text-info fa-xl"></i>
+                                      @else
+                                           <i class="fa-solid fa-file text-secondary fa-xl"></i>
+                                      @endif
                                     </a>
-                                @else
-                                    <i class="fa-solid fa-minus text-light"></i>
-                                @endif
-                            </td>
+                                    @else
+                                      <i class="fa-solid fa-minus text-muted opacity-50"></i>
+                                    @endif
+                                        </td>
 
                             {{-- Celda: Acciones --}}
                             <td class="text-center">

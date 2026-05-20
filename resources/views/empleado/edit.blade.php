@@ -311,9 +311,9 @@
                                 </label>
 
                                 <input type="file"
-                                       name="documento"
+                                       name="documento[]"
                                        class="form-control"
-                                       accept=".pdf,.jpg,.png">
+                                       accept=".pdf, .doc, .docx, .xls, .xlsx, .jpg, .png" multiple>
                             </div>
                         </div>
 

@@ -113,6 +113,16 @@ public function movimientosTiempo()
     // Si no, podemos usar 'horasExtras' como base para el reporte de "ganadas"
     return $this->hasMany(HoraExtra::class, 'empleado_id');
 }
+
+/**
+ * Esta es la relación que busca el controlador para el PDF
+ * Fusiona la lógica para los documentos
+ */
+public function documentos()
+    {
+        // Esto le dice a Laravel que busque en documentos_laborales usando 'empleado_id'
+        return $this->hasMany(DocumentoLaboral::class, 'empleado_id');
+    }
     
 }
 

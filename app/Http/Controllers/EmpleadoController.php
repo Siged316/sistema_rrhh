@@ -77,64 +77,71 @@ class EmpleadoController extends Controller
     | Se encarga de registrar un nuevo empleado en la base de datos,
     | incluyendo validaciones, asignación de política y carga de documentos.
     */
-    public function store(Request $request)
-    {
-      $request->merge([
-          'nombre'   => trim($request->nombre),
-          'apellido' => trim($request->apellido)
-        ]);
+  public function store(Request $request)
+   {
+    $request->merge([
+        'nombre'   => trim($request->nombre),
+        'apellido' => trim($request->apellido)
+    ]);
 
-       $request->validate([
-         'nombre'           => 'required|unique:empleados,nombre',
-         'apellido'         => 'required',
-         // El email ahora es opcional (nullable) para RRHH
-         'email'            => 'nullable|email|unique:empleados,email', 
-         'cargo'            => 'required',
-         'departamento'     => 'required|exists:departamentos,id',
-         'fecha_ingreso'    => 'required|date',
-         'fecha_nacimiento' => 'nullable|date',
-         'politica_id'      => 'required|exists:politicas_vacaciones,id',
-        ], [
-         'nombre.unique' => 'Ya existe un empleado registrado con este nombre.',
-         'email.unique'  => 'Este correo electrónico ya está en uso.',
-        ]);
+    $request->validate([
+        'codigo_empleado'  => 'required|unique:empleados,codigo_empleado', // Aseguramos unicidad
+        'dni'              => 'required|unique:empleados,dni',             // Aseguramos unicidad
+        'nombre'           => 'required',
+        'apellido'         => 'required',
+        'email'            => 'nullable|email|unique:empleados,email', 
+        'cargo'            => 'required',
+        'departamento'     => 'required|exists:departamentos,id',
+        'fecha_ingreso'    => 'required|date',
+        'fecha_nacimiento' => 'nullable|date',
+        'politica_id'      => 'required|exists:politicas_vacaciones,id',
+        'documento.*'      => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx,jpg,png|max:10240', // En singular
+    ], [
+        'codigo_empleado.unique' => 'Ya existe un empleado con este código.',
+        'dni.unique'             => 'Este número de DNI ya se encuentra registrado.',
+        'email.unique'           => 'Este correo electrónico ya está en uso.',
+        'documento.*.mimes'      => 'El documento debe ser un archivo de tipo: pdf, doc, docx, xls, xlsx, jpg, png.',
+        'documento.*.max'        => 'El tamaño máximo permitido para cada documento es de 10MB.',
+    ]);
 
-       $politica = PoliticaVacaciones::findOrFail($request->politica_id);
+    $politica = PoliticaVacaciones::findOrFail($request->politica_id);
 
-       $empleado = new Empleado();
-       $empleado->nombre           = $request->nombre;
-      $empleado->apellido         = $request->apellido;
-      // Si RRHH no pone email, se guarda como null hasta que Tecnología cree el usuario
-     $empleado->email            = $request->email; 
-     $empleado->cargo            = $request->cargo;
-     $empleado->departamento_id  = $request->departamento;
-     $empleado->fecha_ingreso    = $request->fecha_ingreso;
-     $empleado->fecha_nacimiento = $request->fecha_nacimiento;
-     $empleado->estado           = 'activo';
-     $empleado->contacto         = $request->input('contacto') ?? 'N/A';
-     $empleado->tipo_contrato    = $politica->tipo_contrato;
-     $empleado->dias_vacaciones_anuales = $politica->dias_anuales;
+    $empleado = new Empleado();
+    $empleado->codigo_empleado  = $request->codigo_empleado;
+    $empleado->dni              = $request->dni;
+    $empleado->nombre           = $request->nombre;
+    $empleado->apellido         = $request->apellido;
+    $empleado->email            = $request->email; 
+    $empleado->cargo            = $request->cargo;
+    $empleado->departamento_id  = $request->departamento;
+    $empleado->fecha_ingreso    = $request->fecha_ingreso;
+    $empleado->fecha_nacimiento = $request->fecha_nacimiento;
+    $empleado->estado           = 'activo';
+    $empleado->contacto         = $request->input('contacto') ?? 'N/A';
+    $empleado->tipo_contrato    = $politica->tipo_contrato;
+    $empleado->dias_vacaciones_anuales = $politica->dias_anuales;
 
-     $empleado->save();
+    $empleado->save();
 
-     // Lógica de documentos (se mantiene igual...)
-       if ($request->hasFile('documentos')) {
-          foreach ($request->file('documentos') as $index => $archivo) {
-              $tipo = $request->tipos_documento[$index] ?? 'Documento Laboral';
-              $nombreArchivo = time() . '_' . $archivo->getClientOriginalName();
-              $ruta = $archivo->storeAs('documentos', $nombreArchivo, 'public');
+    // ✅ Lógica de documentos sincronizada en singular
+    if ($request->hasFile('documento')) {
+        foreach ($request->file('documento') as $index => $archivo) {
+            $tipo = $request->tipos_documento[$index] ?? 'Documento Laboral';
+            $nombreOriginal = $archivo->getClientOriginalName();
+            $nombreCompletoArchivo = time() . '_' . $nombreOriginal;
+            $ruta = $archivo->storeAs('documentos', $nombreCompletoArchivo, 'public');
 
-               DocumentoLaboral::create([
-                 'empleado_id'    => $empleado->id,
-                 'tipo_documento' => $tipo,
-                 'nombre_archivo' => $nombreArchivo,
-                 'ruta_archivo'   => $ruta,
-               ]);
-           }
-       }
-
-      return redirect()->route('empleado.index')->with('success', 'Empleado creado. Pendiente creación de usuario por TI.');
+            DocumentoLaboral::create([
+                'empleado_id'    => $empleado->id,
+                'tipo_documento' => $tipo,
+                'nombre_archivo' => $nombreOriginal,
+                'ruta_archivo'   => $ruta,
+            ]);
+        }
     }
+
+    return redirect()->route('empleado.index')->with('success', 'Empleado creado exitosamente. Pendiente creación de usuario por TI.');
+   }
 
     /*
     |--------------------------------------------------------------------------
@@ -145,58 +152,81 @@ class EmpleadoController extends Controller
     */
     public function update(Request $request, $id)
     {
-      $empleado = Empleado::findOrFail($id);
-
-       $request->validate([
-         'nombre' => ['required', Rule::unique('empleados')->ignore($id)],
-         'apellido' => 'required',
-         'email' => ['nullable', 'email', Rule::unique('empleados')->ignore($id)],
-         'departamento' => 'required|exists:departamentos,id',
-         'politica_id' => 'required|exists:politicas_vacaciones,id',
-         'fecha_ingreso' => 'required|date',
-         'fecha_baja' => 'nullable|date',
-        ]);
-
-        // --- LÓGICA DE ASCENSO AUTOMÁTICO ---
-       // Verificamos si este empleado es el jefe en el departamento seleccionado
-       $esJefe = DB::table('departamentos')
-                ->where('id', $request->departamento)
-                ->where('jefe_empleado_id', $id)
-                ->exists();
-
-       // Asignación manual
-       $empleado->nombre          = trim($request->nombre);
-       $empleado->apellido        = trim($request->apellido);
-       $empleado->email           = $request->email;
+  
     
-       // Si es jefe en la tabla departamentos, forzamos el cargo a "JEFE"
-       // De lo contrario, usamos lo que venga del formulario (ej. "ANALISTA")
-       $empleado->cargo           = $esJefe ? 'JEFE' : $request->cargo;
-    
-       $empleado->departamento_id = $request->departamento; 
-       $empleado->estado          = $request->estado;
-       $empleado->contacto        = $request->input('contacto') ?? 'N/A';
-       $empleado->fecha_ingreso   = $request->fecha_ingreso;
-       $empleado->fecha_baja      = $request->fecha_baja;
+    $empleado = Empleado::findOrFail($id);
 
-       // Sincronización con Usuario
-      if ($empleado->user_id && $request->filled('email')) {
-          DB::table('users')
-            ->where('id', $empleado->user_id)
-            ->update(['email' => $request->email]);
-       }
+    $request->validate([
+        'nombre' => ['required', Rule::unique('empleados')->ignore($id)],
+        'apellido' => 'required',
+        'email' => ['nullable', 'email', Rule::unique('empleados')->ignore($id)],
+        'departamento' => 'required|exists:departamentos,id',
+        'politica_id' => 'required|exists:politicas_vacaciones,id',
+        'fecha_ingreso' => 'required|date',
+        'fecha_baja' => 'nullable|date',
+        // ✅ CORREGIDO A SINGULAR: 'documento.*' para coincidir con el HTML
+        'documento.*' => 'nullable|file|mimes:pdf,doc,docx,xls,xlsx,jpg,png|max:10240', 
+    ]);
 
-       // Lógica de política
-      $politicaNueva = PoliticaVacaciones::findOrFail($request->politica_id);
-      if ($empleado->tipo_contrato !== $politicaNueva->tipo_contrato) {
-          $empleado->tipo_contrato = $politicaNueva->tipo_contrato;
-          $empleado->dias_vacaciones_anuales = $politicaNueva->dias_anuales;
-          $empleado->fecha_cambio_contrato = now()->format('Y-m-d');
+    // --- LÓGICA DE ASCENSO AUTOMÁTICO ---
+    $esJefe = DB::table('departamentos')
+             ->where('id', $request->departamento)
+             ->where('jefe_empleado_id', $id)
+             ->exists();
+
+    $empleado->nombre          = trim($request->nombre);
+    $empleado->apellido        = trim($request->apellido);
+    $empleado->email           = $request->email;
+    $empleado->cargo           = $esJefe ? 'JEFE' : $request->cargo;
+    $empleado->departamento_id = $request->departamento; 
+    $empleado->estado          = $request->estado;
+    $empleado->contacto        = $request->input('contacto') ?? 'N/A';
+    $empleado->fecha_ingreso   = $request->fecha_ingreso;
+    $empleado->fecha_baja      = $request->fecha_baja;
+
+    // Sincronización con Usuario
+    if ($empleado->user_id && $request->filled('email')) {
+        DB::table('users')
+          ->where('id', $empleado->user_id)
+          ->update(['email' => $request->email]);
+    }
+
+    // Lógica de política
+    $politicaNueva = PoliticaVacaciones::findOrFail($request->politica_id);
+    if ($empleado->tipo_contrato !== $politicaNueva->tipo_contrato) {
+        $empleado->tipo_contrato = $politicaNueva->tipo_contrato;
+        $empleado->dias_vacaciones_anuales = $politicaNueva->dias_anuales;
+        $empleado->fecha_cambio_contrato = now()->format('Y-m-d');
+    }
+
+    $empleado->save();
+
+    // =========================================================
+    // GUARDAR EN LA TABLA: documentos_laborales
+    // =========================================================
+    // ✅ CORREGIDO A SINGULAR: Cambiado 'documentos' por 'documento'
+    if ($request->hasFile('documento')) {
+        foreach ($request->file('documento') as $index => $archivo) {
+            
+            // Asegúrate de que en tu formulario exista name="tipos_documento[]", si no, usará 'Documento Laboral'
+            $tipo = $request->tipos_documento[$index] ?? 'Documento Laboral';
+            $nombreOriginal = $archivo->getClientOriginalName();
+            $nombreCompletoArchivo = time() . '_' . $nombreOriginal;
+            
+            // Esto guarda el archivo físico en storage/app/public/documentos
+            $ruta = $archivo->storeAs('documentos', $nombreCompletoArchivo, 'public');
+
+            // Inserción directa respetando las columnas exactas de tu tabla
+            DocumentoLaboral::create([
+                'empleado_id'    => $empleado->id,
+                'tipo_documento' => $tipo,
+                'nombre_archivo' => $nombreOriginal, 
+                'ruta_archivo'   => $ruta,           
+            ]);
         }
+    }
 
-        $empleado->save();
-
-       return redirect()->route('empleado.index')->with('success', 'Empleado actualizado correctamente.');
+    return redirect()->route('empleado.index')->with('success', 'Empleado y expediente actualizados correctamente.');
     }
 
 
@@ -229,10 +259,10 @@ class EmpleadoController extends Controller
     }
 
     /**
- * Cambia el estado del empleado (Activo/Inactivo)
- */
-public function cambiarEstado($id)
-{
+    * Cambia el estado del empleado (Activo/Inactivo)
+    */
+   public function cambiarEstado($id)
+   {
     // 1. Busca al empleado
     $empleado = Empleado::findOrFail($id);
 
@@ -254,5 +284,5 @@ public function cambiarEstado($id)
 
     // 4. Redirecciona con mensaje
     return redirect()->back()->with('success', $mensaje);
-}
+   }
 }
