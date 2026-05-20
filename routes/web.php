@@ -16,7 +16,6 @@ use App\Http\Controllers\SolicitudController;          // Controlador de solicit
 use App\Http\Controllers\PoliticaVacacionesController; // Controlador de políticas de vacaciones
 use App\Http\Controllers\UsuarioController;            // Controlador de usuarios
 use App\Http\Controllers\LoginController;              // Controlador de login
-use App\Http\Controllers\TiempoCompensatorioController;// Controlador de tiempo compensatorio
 use App\Http\Controllers\HoraExtraController;          // Controlador de horas extras
 use App\Http\Controllers\DireccionHoraExtraController; // Controlador para aprobación dirección
 use App\Http\Controllers\DepartmentController;         // Controlador de departamentos
