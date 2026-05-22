@@ -45,17 +45,20 @@ class PermisosSistemaController extends Controller
     */
     public function update(Request $request)
     {
-        // 1. Validación de los datos recibidos del formulario
+        // 1. Validación inicial
         $request->validate([
-            'role_id' => 'required|exists:roles,id', // El rol debe existir
-            'modulos' => 'array'                     // Los módulos deben ser un arreglo
+            'role_id' => 'nullable', // Permitimos que llegue vacío para controlarlo nosotros
+            'modulos' => 'array'
         ]);
 
-        // 2. Obtener el ID del rol seleccionado
         $roleId = $request->role_id;
 
-        // 3. Definir la lista oficial de módulos del sistema
-        // Esto evita permisos no autorizados o inexistentes
+        // CONTROL CRÍTICO: Si presionan actualizar sin haber seleccionado ningún rol
+        if (empty($roleId)) {
+            return redirect()->route('permisos_sistema.index')
+                ->with('info', 'Por favor, seleccione un rol antes de intentar actualizar los permisos.');
+        }
+
         $modulosSistema = [
             'seguridad',
             'administración',
@@ -64,26 +67,44 @@ class PermisosSistemaController extends Controller
             'proyectos'
         ];
 
-        // 4. Recorrer cada módulo y actualizar su visibilidad
-        foreach ($modulosSistema as $modulo) {
+        // 2. Obtener estado actual en la Base de Datos
+        $permisosActuales = RolModulo::where('role_id', $roleId)
+            ->pluck('visible', 'modulo')
+            ->toArray();
 
-            // updateOrCreate:
-            // - Si el registro existe, lo actualiza
-            // - Si no existe, lo crea automáticamente
+        // 3. Detectar si realmente se cambió algún switch
+        $hayCambios = false;
+        foreach ($modulosSistema as $modulo) {
+            $estadoFormulario = isset($request->modulos[$modulo]) ? 1 : 0;
+            $estadoActual = $permisosActuales[$modulo] ?? 0;
+
+            if ($estadoFormulario !== $estadoActual) {
+                $hayCambios = true;
+                break; // Con un solo cambio, ya es válido procesar
+            }
+        }
+
+        // SI NO HUBO CAMBIOS: Redirección limpia al rol actual
+        if (!$hayCambios) {
+            return redirect()->route('permisos_sistema.index', ['role_id' => $roleId])
+                ->with('info', 'No se realizaron cambios en los permisos.');
+        }
+
+        // 4. PROCESAR ACTUALIZACIÓN (Solo si hay cambios)
+        foreach ($modulosSistema as $modulo) {
             RolModulo::updateOrCreate(
                 [
-                    'role_id' => $roleId, // Rol asociado
-                    'modulo'  => $modulo  // Nombre del módulo
+                    'role_id' => $roleId,
+                    'modulo'  => $modulo
                 ],
                 [
-                    // Si el módulo viene marcado en el formulario → visible = 1
-                    // Si no viene → visible = 0
                     'visible' => isset($request->modulos[$modulo]) ? 1 : 0
                 ]
             );
         }
 
-        // 5. Retornar a la vista anterior con mensaje de éxito
-        return back()->with('success', 'Permisos actualizados correctamente');
+        // REDIRECCIÓN EXITOSA: Usamos un nombre único 'success_permisos' para no chocar con el perfil
+        return redirect()->route('permisos_sistema.index', ['role_id' => $roleId])
+            ->with('success_permisos', 'Permisos actualizados correctamente.');
     }
 }

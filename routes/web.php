@@ -153,7 +153,7 @@ Route::middleware(['auth', 'force.password.change'])->group(function () {
         ->name('permisos_sistema.index');
 
     // Actualizar permisos del sistema
-    Route::post('/seguridad/permisos', [PermisosSistemaController::class, 'update'])
+    Route::post('/seguridad/permisos/update', [PermisosSistemaController::class, 'update'])
         ->name('permisos_sistema.update');
 
 
