@@ -79,7 +79,7 @@
                         </div>
 
                         {{-- 2. DEPARTAMENTOS (Oculto inicialmente) --}}
-                        <div class="col-md-3 border-end bg-white seccion-paso-2" style="display: none;">
+                        <div class="col-md-3 border-end bg-white seccion-paso-2 contenedor-dinamico" style="display: none;">
                             <label class="form-label fw-bold text-dark p-2">2. Departamentos</label>
                             <div class="list-group list-group-flush border-top">
                                 <button type="button" class="list-group-item list-group-item-action active btn-filtro-general" data-dept="todos">
@@ -94,7 +94,7 @@
                         </div>
 
                         {{-- 3. COLABORADORES (Oculto inicialmente) --}}
-                        <div class="col-md-6 bg-white seccion-paso-3" style="display: none;">
+                        <div class="col-md-6 bg-white seccion-paso-3 contenedor-dinamico" style="display: none;">
                             <div class="row h-100">
                                 {{-- COLUMNA EVALUADOS --}}
                                 <div class="col-6 border-end">
@@ -260,54 +260,50 @@
 {{-- SCRIPTS --}}
 
 <script>
-$(document).ready(function() {
-    console.log("Sistema de Asignación IHCI Iniciado");
-
-    // 1. Mostrar/Ocultar secciones al elegir el tipo
-    $(document).on('change', '.selector-tipo-eval', function() {
-        let modal = $(this).closest('.modal');
-        let tipo = $(this).val();
-        
-      if (tipo) {
-        // Mostramos las secciones de Departamentos y Listados
-        modal.find('.seccion-paso-2').attr('style', 'display: block !important');
-        modal.find('.seccion-paso-3').attr('style', 'display: block !important');
-
-        if (tipo === 'Autoevaluacion') {
-            // Ocultamos la columna de jefes
-            modal.find('.seccion-jefes-col').hide();
+document.addEventListener('DOMContentLoaded', function() {
+    
+    // 1. Escuchar el cambio en el selector de tipo de evaluación
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('selector-tipo-eval')) {
+            let select = e.target;
+            let modal = select.closest('.modal-content'); // Buscamos el contenedor del modal
+            let tipo = select.value;
             
-            // LIMPIEZA: Desmarcamos cualquier jefe que haya quedado seleccionado por error
-            modal.find('.item-jefe input[type="checkbox"]').prop('checked', false);
-            // Limpiar también los inputs de peso
-            modal.find('input[name^="peso_jefe"]').val('');
-            
-            console.log("Modo Autoevaluación: Jefes desmarcados y ocultos.");
-        } else {
-            // Si es Evaluación de Jefe, mostramos la columna
-            modal.find('.seccion-jefes-col').attr('style', 'display: block !important');
+            let seccion2 = modal.querySelector('.seccion-paso-2');
+            let seccion3 = modal.querySelector('.seccion-paso-3');
+            let colJefes = modal.querySelector('.seccion-jefes-col');
+
+            if (tipo) {
+                seccion2.style.display = 'block';
+                seccion3.style.display = 'block';
+                colJefes.style.display = (tipo === 'Autoevaluacion') ? 'none' : 'block';
+            } else {
+                seccion2.style.display = 'none';
+                seccion3.style.display = 'none';
+            }
         }
-    } else {
-        // Si no hay nada seleccionado, ocultamos todo el flujo
-        modal.find('.seccion-paso-2, .seccion-paso-3').attr('style', 'display: none !important');
-    }
     });
 
-    // 2. Filtro jerárquico por departamento
-    $(document).on('click', '.btn-filtro-general', function() {
-        let modal = $(this).closest('.modal');
-        let deptId = $(this).data('dept');
+    // 2. Escuchar el clic en los botones de departamento
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.btn-filtro-general')) {
+            let btn = e.target.closest('.btn-filtro-general');
+            let modal = btn.closest('.modal-content');
+            let deptId = btn.getAttribute('data-dept');
 
-        // Estilo de botones de departamento
-        modal.find('.btn-filtro-general').removeClass('active bg-primary text-white');
-        $(this).addClass('active bg-primary text-white');
+            // Quitar clase active de todos los botones en ESTE modal
+            modal.querySelectorAll('.btn-filtro-general').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
 
-        if (deptId === 'todos') {
-            modal.find('.item-colaborador, .item-jefe').fadeIn(200);
-        } else {
-            modal.find('.item-colaborador, .item-jefe').hide();
-            modal.find('.item-colaborador[data-dept="' + deptId + '"]').fadeIn(200);
-            modal.find('.item-jefe[data-dept="' + deptId + '"]').fadeIn(200);
+            // Filtrar colaboradores y jefes
+            let items = modal.querySelectorAll('.item-colaborador, .item-jefe');
+            items.forEach(item => {
+                if (deptId === 'todos' || item.getAttribute('data-dept') === deptId) {
+                    item.style.display = 'block';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
         }
     });
 });

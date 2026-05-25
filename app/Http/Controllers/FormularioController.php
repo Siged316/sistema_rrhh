@@ -81,7 +81,7 @@ class FormularioController extends Controller
 
            DB::commit();
 
-             // Al crear el nuevo formulario, establecemos la sesión en true
+           // Al crear el nuevo formulario, establecemos la sesión en true
            session(['esNuevo' => true]);
 
            // Enviamos la URL de redirección solo si todo salió bien
@@ -99,15 +99,15 @@ class FormularioController extends Controller
     //Guarda la asignación del formulario
     public function asignarStore(Request $request)
     {
-    $request->validate([
+       $request->validate([
         'formulario_id' => 'required',
         'empleado_id'   => 'required|array',
         'tipo'          => 'required',
         'peso_jefe'     => 'nullable|array',
         'proyecto_id'   => 'nullable' // Validamos con el nombre correcto
-    ]);
+       ]);
 
-    try {
+       try {
         DB::beginTransaction();
         $creados = 0;
         $omitidos = 0;
@@ -197,10 +197,10 @@ class FormularioController extends Controller
             return back()->with('info', "No hubo cambios. Las asignaciones ya existen.");
         }
 
-    } catch (\Exception $e) {
-        DB::rollBack();
-        return back()->with('error', 'Error técnico: ' . $e->getMessage());
-    }
+       } catch (\Exception $e) {
+          DB::rollBack();
+          return back()->with('error', 'Error técnico: ' . $e->getMessage());
+       }
     }
 
    // Función privada para insertar en la BD
@@ -270,8 +270,8 @@ class FormularioController extends Controller
    }
 
   // Método para agregar una nueva pregunta al formulario
-  public function agregarPregunta(Request $request, $id)
-  {
+   public function agregarPregunta(Request $request, $id)
+   {
     // 1. Validar que no haya duplicados en el array enviado
     $preguntas = $request->preguntas;
     
