@@ -1,354 +1,145 @@
 @extends('layouts.app')
 
 @section('content')
-
-{{-- =========================================================
-     ESTILOS PERSONALIZADOS
-========================================================== --}}
 <style>
-
-    /*
-    |--------------------------------------------------------------------------
-    | Contenedor principal de la gráfica
-    |--------------------------------------------------------------------------
-    */
-    .grafico-container {
-        position: relative;
-        height: 500px;
-        width: 100%;
-        background-color: #141820 !important;
-        border-radius: 15px;
-        padding: 30px;
-        border: 1px solid #d1d3e2;
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Canvas de la gráfica
-    |--------------------------------------------------------------------------
-    */
-    #canvasDepto {
-        background-color: rgba(0,0,0,0) !important;
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Contenedor de checkboxes
-    |--------------------------------------------------------------------------
-    */
-    .checkbox-group {
-        background-color: #ffffff;
-        border: 1px solid #d1d3e2;
-        border-radius: 5px;
-        padding: 10px;
-        max-height: 150px;
-        overflow-y: auto;
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Cursor para labels
-    |--------------------------------------------------------------------------
-    */
-    .custom-control-label {
-        cursor: pointer;
-    }
+    .grafico-container { position: relative; height: 500px; width: 100%; background-color: #141820 !important; border-radius: 15px; padding: 30px; border: 1px solid #d1d3e2; }
+    .custom-dropdown { position: relative; width: 100%; }
+    .dropdown-trigger { width: 100%; text-align: left; background: white; border: 1px solid #ced4da; padding: 0.375rem 0.75rem; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+    .dropdown-content { display: none; position: absolute; background: white; border: 1px solid #ced4da; width: 100%; z-index: 1000; max-height: 200px; overflow-y: auto; padding: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    .dropdown-content.show { display: block; }
 </style>
 
-{{-- =========================================================
-     CONTENEDOR PRINCIPAL
-========================================================== --}}
 <div class="container-fluid">
 
-    {{-- =========================================================
-         TÍTULO PRINCIPAL
-    ========================================================== --}}
-    <div class="row mb-4">
-
-        <div class="col-12 text-center">
-
-            <h2 class="font-weight-bold text-dark">
-
-                <i class="fas fa-chart-bar text-primary mr-2"></i>
-
-                Comparativa de Desempeño por Departamento
-            </h2>
-
-            <hr>
-        </div>
-    </div>
-
-    {{-- =========================================================
-         TARJETA PRINCIPAL
-    ========================================================== --}}
     <div class="card shadow mb-4">
-
-        {{-- =========================================================
-             CUERPO DE LA TARJETA
+          {{-- =========================================================
+             ENCABEZADO DE LA TARJETA
         ========================================================== --}}
-        <div class="card-body" style="background-color: #f8f9fc;"> 
-
-            {{-- =========================================================
-                 FILTROS
-            ========================================================== --}}
+        <div class="card-header py-3 bg-white text-center">
+          {{-- Título principal --}}
+          <h2 class="m-0 font-weight-bold text-primary">
+             Análisis Comparativo Por Departamento
+          </h2>
+        </div>
+        <div class="card-body">
             <div class="row align-items-end mb-4">
-
-                {{-- =========================================================
-                     CHECKBOXES DE DEPARTAMENTOS
-                ========================================================== --}}
+                {{-- Departamentos --}}
                 <div class="col-md-4">
-
-                    <label class="font-weight-bold text-gray-800">
-                        Departamentos a Comparar:
-                    </label>
-
-                    {{-- Contenedor scrollable --}}
-                    <div class="checkbox-group">
-
-                        {{-- Recorrido de departamentos --}}
+                    <label class="font-weight-bold">Departamentos:</label>
+                    <div style="max-height: 150px; overflow-y: auto; border: 1px solid #d1d3e2; padding: 10px; border-radius: 5px;">
                         @foreach($departamentos as $depto)
-
-                            <div class="custom-control custom-checkbox mb-1">
-
-                                {{-- Checkbox --}}
-                                <input 
-                                    type="checkbox"
-                                    class="custom-control-input depto-check"
-                                    id="depto_{{ $depto->id }}"
-                                    value="{{ $depto->id }}"
-                                >
-
-                                {{-- Nombre del departamento --}}
-                                <label 
-                                    class="custom-control-label text-gray-800"
-                                    for="depto_{{ $depto->id }}"
-                                >
-                                    {{ $depto->nombre }}
-                                </label>
+                            <div class="custom-control custom-checkbox">
+                                <input type="checkbox" class="custom-control-input depto-check" id="d{{$depto->id}}" value="{{$depto->id}}">
+                                <label class="custom-control-label" for="d{{$depto->id}}">{{$depto->nombre}}</label>
                             </div>
-
                         @endforeach
                     </div>
                 </div>
 
-                {{-- =========================================================
-                     SELECTOR DE AÑO
-                ========================================================== --}}
+                {{-- Años (con menú desplegable igual al individual) --}}
+                <div class="col-md-3">
+                    <label class="font-weight-bold">Años:</label>
+                    <div class="custom-dropdown">
+                        <div class="dropdown-trigger form-control" id="btnAnios" onclick="toggleMenu()">Seleccionar años... <i class="fas fa-caret-down"></i></div>
+                        <div class="dropdown-content" id="menuAnios">
+                            @foreach($anios as $a)
+                                <div class="custom-control custom-checkbox px-3 py-1">
+                                    <input type="checkbox" class="custom-control-input anio-check" id="anio_{{ $a }}" value="{{ $a }}">
+                                    <label class="custom-control-label" for="anio_{{ $a }}">{{ $a }}</label>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Mes --}}
                 <div class="col-md-2">
-
-                    <label class="font-weight-bold text-gray-800">
-                        Año:
-                    </label>
-                   
-                    <div id="anio_check_container" style="display:none;">
-                       @foreach($anios as $anio)
-                          <label>
-                             <input type="checkbox" class="anio-check" value="{{ $anio }}">
-                             {{ $anio }}
-                          </label>
-                       @endforeach
-                    </div>
-
-                    <select id="anio_valor" class="form-control">
-                       <option value="" selected disabled>Elija...</option>
-                        @foreach($anios as $anio)
-                           <option value="{{ $anio }}">{{ $anio }}</option>
-                        @endforeach
-                    </select>
-                   
-                </div>
-
-                {{-- =========================================================
-                     SELECTOR DE MES
-                ========================================================== --}}
-                <div class="col-md-3">
-
-                    <label class="font-weight-bold text-gray-800">
-                        Mes:
-                    </label>
-
+                    <label class="font-weight-bold">Mes:</label>
                     <select id="mes_valor" class="form-control">
-
-                        <option value="" selected disabled>
-                            Elija...
-                        </option>
-
-                        {{-- Opción acumulada --}}
-                        <option value="">
-                            Todo el Año (Acumulado)
-                        </option>
-
-                        {{-- Lista de meses --}}
-                        <option value="1">Enero</option>
-                        <option value="2">Febrero</option>
-                        <option value="3">Marzo</option>
-                        <option value="4">Abril</option>
-                        <option value="5">Mayo</option>
-                        <option value="6">Junio</option>
-                        <option value="7">Julio</option>
-                        <option value="8">Agosto</option>
-                        <option value="9">Septiembre</option>
-                        <option value="10">Octubre</option>
-                        <option value="11">Noviembre</option>
-                        <option value="12">Diciembre</option>
+                        <option value="all">Todo el año</option>
+                        @for($i=1; $i<=12; $i++) <option value="{{$i}}">{{date('F', mktime(0,0,0,$i,1))}}</option> @endfor
                     </select>
                 </div>
 
-                {{-- =========================================================
-                     BOTÓN GENERAR VISUALIZACIÓN
-                ========================================================== --}}
                 <div class="col-md-3">
-
-                    <button 
-                        class="btn btn-primary btn-block shadow"
-                        onclick="cargarDatosGrafica()"
-                    >
-
-                        <i class="fas fa-sync-alt mr-2"></i>
-
-                        Generar Gráfica
-                    </button>
+                    <button type="button" class="btn btn-primary btn-block" onclick="generarGrafica()">Generar Gráfica</button>
                 </div>
             </div>
-
-            {{-- =========================================================
-                 ÁREA DE LA GRÁFICA
-            ========================================================== --}}
-            <div class="row mt-4">
-
-                <div class="col-12">
-
-                    {{-- Contenedor visual --}}
-                    <div class="grafico-container">
-
-                        {{-- Canvas Chart.js --}}
-                        <canvas id="canvasDepto"></canvas>
-
-                    </div>
-                </div>
-            </div>
+            <div class="grafico-container"><canvas id="canvasDepto"></canvas></div>
         </div>
     </div>
 </div>
 
-{{-- =========================================================
-     SCRIPT PRINCIPAL
-========================================================== --}}
-
 <script>
-
 let miGrafica = null;
 
-function cargarDatosGrafica() {
+// Lógica de menú desplegable
+function toggleMenu() { document.getElementById('menuAnios').classList.toggle('show'); }
 
-    const depto_ids = Array.from(
-        document.querySelectorAll('.depto-check:checked')
-    ).map(cb => cb.value);
+document.addEventListener('click', function(e) {
+    const menu = document.getElementById('menuAnios');
+    const btn = document.getElementById('btnAnios');
+    if (!btn.contains(e.target) && !menu.contains(e.target)) menu.classList.remove('show');
+});
 
-    const esUnDepto = depto_ids.length === 1;
-    const esMultiDepto = depto_ids.length > 1;
+// Actualizar texto del botón de años
+document.querySelectorAll('.anio-check').forEach(chk => {
+    chk.addEventListener('change', () => {
+        const checked = document.querySelectorAll('.anio-check:checked');
+        const btn = document.getElementById('btnAnios');
+        btn.innerHTML = checked.length === 0 ? 'Seleccionar años... <i class="fas fa-caret-down"></i>' : (checked.length === 1 ? checked[0].value : checked.length + ' años') + ' <i class="fas fa-caret-down"></i>';
+    });
+});
 
-   const mesEl = document.getElementById('mes_valor');
-   const mes = mesEl.value;
-   const esTodoAnio = mes === "";
+function generarGrafica() {
+    const deptos = Array.from(document.querySelectorAll('.depto-check:checked')).map(cb => cb.value);
+    const anios = Array.from(document.querySelectorAll('.anio-check:checked')).map(c => c.value);
+    const mes = document.getElementById('mes_valor').value;
 
-    
-
-    let anios = [];
-
-    // 🔵 CASO 1: 1 DEPARTAMENTO → CHECKBOX
-    if (esUnDepto) {
-
-        anios = Array.from(
-            document.querySelectorAll('.anio-check:checked')
-        ).map(cb => cb.value);
-
-        if (anios.length < 2) {
-            Swal.fire(
-                'Atención',
-                'Debe seleccionar al menos 2 años para comparar este departamento',
-                'warning'
-            );
-            return;
-        }
-
-    } 
-    // 🔴 CASO 2: VARIOS DEPARTAMENTOS → SELECT
-    else {
-
-        const anio = document.getElementById('anio_valor').value;
-
-        if (!anio) {
-            Swal.fire(
-                'Atención',
-                'Seleccione un año para comparar departamentos',
-                'warning'
-            );
-            return;
-        }
-
-        anios = [anio];
+    // 1. Validaciones básicas de selección mínima
+    if (deptos.length === 0) {
+        Swal.fire('Atención', 'Seleccione al menos un departamento.', 'warning');
+        return;
     }
-
-    // 🔴 DEPARTAMENTOS
-    if (depto_ids.length === 0) {
-        Swal.fire('Atención', 'Seleccione al menos un departamento', 'warning');
+    if (anios.length === 0) {
+        Swal.fire('Atención', 'Seleccione al menos un año.', 'warning');
         return;
     }
 
-    // 🔴 MES
-   // 🔴 VALIDACIÓN CORRECTA DEL MES
-if (mesEl.selectedIndex === 0) {
-    Swal.fire('Atención', 'Debe seleccionar un mes o "Todo el año"', 'warning');
-    return;
-}
-
-    Swal.fire({
-        title: 'Generando gráfica...',
-        allowOutsideClick: false,
-        didOpen: () => Swal.showLoading()
-    });
-
-    let url = "{{ route('graficas.data.depto') }}";
-
-    url += '?' + depto_ids
-        .map(id => `departamento_ids[]=${encodeURIComponent(id)}`)
-        .join('&');
-
-    url += '&' + anios
-        .map(a => `anios[]=${encodeURIComponent(a)}`)
-        .join('&');
-
-    if (!esTodoAnio) {
-        url += `&mes=${encodeURIComponent(mes)}`;
+    // 2. Validación de lógica de comparación
+    // Caso A: 1 departamento -> Debe tener más de 1 año para comparar
+    if (deptos.length === 1 && anios.length < 2) {
+        Swal.fire('Atención', 'Al seleccionar un solo departamento, debe elegir al menos 2 años para poder comparar.', 'warning');
+        return;
     }
 
-    fetch(url)
+    // Caso B: Más de 1 departamento -> Debe tener exactamente 1 año para comparar
+    if (deptos.length > 1 && anios.length > 1) {
+        Swal.fire('Atención', 'Al comparar varios departamentos, por favor seleccione un solo año para mantener la comparativa clara.', 'warning');
+        return;
+    }
+
+    Swal.fire({ title: 'Generando...', didOpen: () => Swal.showLoading() });
+
+    // Construcción de la URL (sin cambios, ya es correcta)
+    let params = new URLSearchParams();
+    deptos.forEach(id => params.append('departamento_ids[]', id));
+    anios.forEach(a => params.append('anios[]', a));
+    params.append('mes', mes);
+
+    fetch("{{ route('graficas.data.depto') }}?" + params.toString())
         .then(r => r.json())
         .then(data => {
-
             Swal.close();
-
-            const ctx = document.getElementById('canvasDepto').getContext('2d');
-
             if (miGrafica) miGrafica.destroy();
-
-            Chart.register(ChartDataLabels);
-
+            const ctx = document.getElementById('canvasDepto').getContext('2d');
             miGrafica = new Chart(ctx, {
                 type: 'bar',
-                data: {
-                    labels: data.labels,
-                    datasets: data.datasets
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false
-                }
+                data: { labels: data.labels, datasets: data.datasets },
+                options: { responsive: true, maintainAspectRatio: false }
             });
         })
         .catch(err => {
-            console.error(err);
             Swal.close();
             Swal.fire('Error', 'No se pudo cargar la gráfica', 'error');
         });

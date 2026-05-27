@@ -382,63 +382,47 @@ class ReporteController extends Controller
     return view('informes.graficas.depto', compact('departamentos', 'anios'));
     }
 
-    public function dataGraficaDepto(Request $request)
-    {
+   public function dataGraficaDepto(Request $request)
+   {
     $depto_ids = $request->departamento_ids ?? [];
     $anios = $request->anios ?? [];
-    $mes = $request->mes;
+    $mes = $request->mes ?? 'all';
 
-    if (!is_array($depto_ids)) $depto_ids = [$depto_ids];
-    if (!is_array($anios)) $anios = [$anios];
-
-    $departamentos = Departamento::whereIn('id', $depto_ids)->get();
+    $nombres = Departamento::whereIn('id', $depto_ids)->pluck('nombre', 'id');
 
     $query = DB::table('asignacion_evaluaciones as ae')
         ->join('empleados as e', 'ae.empleado_id', '=', 'e.id')
-        ->select(
-            'e.departamento_id',
-            DB::raw("YEAR(ae.created_at) as anio"),
-            DB::raw("AVG(ae.puntuacion_total) as promedio")
-        )
-        ->whereIn('e.departamento_id', $depto_ids);
+        ->select('e.departamento_id', DB::raw("YEAR(ae.created_at) as anio"), DB::raw("MONTH(ae.created_at) as mes"), DB::raw("AVG(ae.puntuacion_total) as promedio"))
+        ->whereIn('e.departamento_id', $depto_ids)
+        ->whereIn(DB::raw("YEAR(ae.created_at)"), $anios);
 
-    if (!empty($anios)) {
-        $query->whereIn(DB::raw('YEAR(ae.created_at)'), $anios);
-    }
+    if ($mes != 'all') $query->whereMonth('ae.created_at', $mes);
 
-    if (!empty($mes)) {
-        $query->whereMonth('ae.created_at', $mes);
-    }
-
-    $data = $query
-        ->groupBy('e.departamento_id', DB::raw('YEAR(ae.created_at)'))
-        ->get();
-
-    $labels = $departamentos->pluck('nombre');
+    $results = $query->groupBy('e.departamento_id', 'anio', 'mes')->get();
 
     $datasets = [];
-
-    foreach ($anios as $anio) {
-
-        $datasets[] = [
-            'label' => "Año $anio",
-            'data' => $departamentos->map(function ($depto) use ($data, $anio) {
-
-                $row = $data->first(function ($r) use ($depto, $anio) {
-                    return $r->departamento_id == $depto->id
-                        && $r->anio == $anio;
-                });
-
-                return $row ? round($row->promedio, 2) : 0;
-            })->values(),
-        ];
+    foreach ($depto_ids as $dId) {
+        $nombreDepto = $nombres[$dId] ?? 'Depto '.$dId;
+        $data = [];
+        if ($mes == 'all') {
+            for ($m = 1; $m <= 12; $m++) {
+                $row = $results->where('departamento_id', $dId)->where('mes', $m)->first();
+                $data[] = $row ? round($row->promedio, 2) : 0;
+            }
+        } else {
+            foreach ($anios as $a) {
+                $row = $results->where('departamento_id', $dId)->where('anio', (int)$a)->first();
+                $data[] = $row ? round($row->promedio, 2) : 0;
+            }
+        }
+        $datasets[] = ['label' => $nombreDepto, 'data' => $data];
     }
 
     return response()->json([
-        'labels' => $labels,
-        'datasets' => $datasets,
+        'labels' => ($mes == 'all') ? ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'] : $anios,
+        'datasets' => $datasets
     ]);
-    }
+   }
 
     // ==========================================
    //  GRÁFICA INDIVIDUAL
