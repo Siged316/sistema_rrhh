@@ -465,28 +465,45 @@ class ReporteController extends Controller
     return response()->json($empleados);
    }
 
-   public function dataGraficaIndividual(Request $request) {
-    $query = DB::table('asignacion_evaluaciones as ae')
-        ->leftJoin('proyectos as p', 'ae.proyecto_id', '=', 'p.id')
-        ->select(
-            DB::raw("COALESCE(p.nombre, ae.tipo) as actividad"), 
-            'ae.puntuacion_total as resultado'
-        )
-        ->where('ae.empleado_id', $request->empleado_id)
-        ->whereYear('ae.created_at', $request->anio);
+    public function dataGraficaIndividual(Request $request)
+    {
+    $mes = $request->mes;
+    $meses = [
+        1 => 'Enero', 2 => 'Febrero', 3 => 'Marzo', 4 => 'Abril', 5 => 'Mayo', 6 => 'Junio',
+        7 => 'Julio', 8 => 'Agosto', 9 => 'Septiembre', 10 => 'Octubre', 11 => 'Noviembre', 12 => 'Diciembre'
+    ];
 
-    if ($request->filled('mes')) {
-        $query->whereMonth('ae.created_at', $request->mes);
+    $series = [];
+    $aniosSolicitados = $request->anios ?? [$request->anio];
+
+    foreach ($aniosSolicitados as $anio) {
+        $query = DB::table('asignacion_evaluaciones')
+            ->select(DB::raw("MONTH(created_at) as mes"), DB::raw("AVG(puntuacion_total) as val"))
+            ->where('empleado_id', $request->empleado_id)
+            ->whereYear('created_at', $anio);
+
+        if ($mes && $mes !== 'todo') {
+            $query->whereMonth('created_at', $mes);
+        }
+
+        $datos = $query->groupBy('mes')->pluck('val', 'mes');
+
+        // Construir el array de series asegurando que siempre haya 12 meses o el filtrado
+        foreach ($meses as $num => $nombre) {
+            if ($mes && $mes !== 'todo' && (int)$mes !== $num) continue;
+            $series[$anio][] = round($datos[$num] ?? 0, 2);
+        }
     }
 
-    $datos = $query->get();
+    // Generar labels filtrados si es necesario
+    $labels = ($mes && $mes !== 'todo') ? [$meses[(int)$mes]] : array_values($meses);
 
     return response()->json([
-        'labels' => $datos->pluck('actividad'),
-        'valores' => $datos->pluck('resultado'),
+        'labels' => $labels,
+        'series' => $series
     ]);
-  }
-
+    }
+    
    // ==========================================
   //  GRÁFICA DE PERMISOS
   // ==========================================

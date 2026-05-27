@@ -27,6 +27,20 @@
         padding: 30px;
         border: 1px solid #d1d3e2;
     }
+
+   /* Estilos del menú desplegable personalizado */
+    .custom-dropdown { position: relative; width: 100%; }
+    .dropdown-trigger { 
+        width: 100%; text-align: left; background: white; 
+        border: 1px solid #ced4da; padding: 0.375rem 0.75rem;
+        cursor: pointer; display: flex; justify-content: space-between; align-items: center;
+    }
+    .dropdown-content {
+        display: none; position: absolute; background: white;
+        border: 1px solid #ced4da; width: 100%; z-index: 1000;
+        max-height: 200px; overflow-y: auto; padding: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .dropdown-content.show { display: block; }
 </style>
 
 {{-- =========================================================
@@ -51,113 +65,105 @@
         {{-- =========================================================
              CUERPO PRINCIPAL
         ========================================================== --}}
-        <div class="card-body" style="background-color: #f8f9fc;">
+        <div class="row">
+           <div class="card-body" style="background-color: #f8f9fc;">
 
-            {{-- =========================================================
-                 FILTROS
-            ========================================================== --}}
-            <div class="row align-items-end mb-4">
+              {{-- =========================================================
+                   FILTROS
+                ========================================================== --}}
+               <div class="row align-items-end mb-4">
 
-                {{-- =========================================================
+                   {{-- =========================================================
                      1. FILTRO DE DEPARTAMENTO
-                ========================================================== --}}
-                <div class="col-md-3">
+                    ========================================================== --}}
+                   <div class="col-md-3">
+                     <label class="font-weight-bold text-dark">
+                          1. Departamento:
+                      </label>
 
-                    <label class="font-weight-bold text-dark">
-                        1. Departamento:
-                    </label>
+                      <select id="depto_id" class="form-control" onchange="cargarEmpleados()">
+                          <option value="">
+                              Seleccione Depto...
+                          </option>
 
-                    <select id="depto_id" class="form-control" onchange="cargarEmpleados()">
+                          {{-- Recorrido de departamentos --}}
+                           @foreach($departamentos as $d)
+                              <option value="{{ $d->id }}">
+                                  {{ $d->nombre }}
+                               </option>
 
-                        <option value="">
-                            Seleccione Depto...
-                        </option>
+                            @endforeach
+                       </select>
+                    </div>
 
-                        {{-- Recorrido de departamentos --}}
-                        @foreach($departamentos as $d)
-
-                            <option value="{{ $d->id }}">
-                                {{ $d->nombre }}
-                            </option>
-
-                        @endforeach
-                    </select>
-                </div>
-
-                {{-- =========================================================
+                    {{-- =========================================================
                      2. FILTRO DE EMPLEADO
-                ========================================================== --}}
-                <div class="col-md-3">
+                    ========================================================== --}}
+                    <div class="col-md-3">
 
-                    <label class="font-weight-bold text-dark">
-                        2. Empleado:
-                    </label>
+                       <label class="font-weight-bold text-dark">
+                          2. Empleado:
+                      </label>
 
-                    {{-- Select cargado dinámicamente --}}
-                    <select id="empleado_id" class="form-control">
+                      {{-- Select cargado dinámicamente --}}
+                      <select id="empleado_id" class="form-control">
+                           <option value="">
+                              Seleccione primero un depto...
+                           </option>
 
-                        <option value="">
-                            Seleccione primero un depto...
-                        </option>
+                        </select>
+                   </div>
 
-                    </select>
-                </div>
-
-                {{-- =========================================================
+                   {{-- =========================================================
                      3. FILTRO DE AÑO
-                ========================================================== --}}
-                <div class="col-md-2">
+                   ========================================================== --}}
+  
+                   {{-- Contenedor padre de 4 columnas --}}
+                    <div class="col-md-4">
+                       <div class="row">
+                          {{-- Columna del Año (50%) --}}
+                          <div class="col-6">
+                              <label class="font-weight-bold text-dark">Año:</label>
+                            <div class="custom-dropdown">
+                         
+                             <div class="dropdown-trigger form-control" id="btnAnios" onclick="toggleMenu()">
+                                 Seleccionar años... <i class="fas fa-caret-down"></i>
+                               </div>
+                             
+                               <div class="dropdown-content" id="menuAnios">
+                                    @foreach($anios as $a)
+                                       <div class="custom-control custom-checkbox" style="padding: 5px 20px;">
+                                          <input type="checkbox" class="custom-control-input anio-check" 
+                                          id="anio_{{ $a }}" value="{{ $a }}" onchange="actualizarModoUI()">
+                                          <label class="custom-control-label" for="anio_{{ $a }}" style="cursor:pointer;">{{ $a }}</label>
+                                       </div>
+                                    @endforeach
+                               </div>
+                         </div>
+                       </div>
 
-                    <label class="font-weight-bold text-dark">
-                        Año:
-                    </label>
+                       {{-- =========================================================
+                        3. FILTRO DE AÑO
+                         ========================================================== --}}
+                        <div class="col-6" id="mesContainer" style="display:none;">
+                           <label class="font-weight-bold text-dark">Mes:</label>
+                           <select id="mes_v" class="form-control">
+                              <option value="todo">Todo el año</option>
+                                  @foreach(['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'] as $i => $m)
+                                      <option value="{{ sprintf('%02d', $i+1) }}">{{ $m }}</option>
+                                  @endforeach
+                           </select>
+                        </div>
+                    </div>
 
-                    <select id="anio_v" class="form-control">
- 
-                    <option value="">Elija...</option>
-                        {{-- Lista de años --}}
-                        @foreach($anios as $a)
-
-                            <option value="{{ $a }}">
-                                {{ $a }}
-                            </option>
-
-                        @endforeach
-                    </select>
+                    {{-- El indicador ahora está debajo de ambos selects pero dentro del col-md-4 --}}
+                     <div class="row">
+                          <div class="col-12 mt-2">
+                             <div id="modoIndicador" class="font-weight-bold text-primary small"></div>
+                          </div>
+                      </div>
+                  </div>
                 </div>
-
-                {{-- =========================================================
-                     4. FILTRO DE MES
-                ========================================================== --}}
-                <div class="col-md-2">
-
-                    <label class="font-weight-bold text-dark">
-                        Mes:
-                    </label>
-
-                    <select id="mes_v" class="form-control">
-
-                     <option value="">Elija...</option>
-                        {{-- Opción general --}}
-                        <option value="">
-                            Todo el año
-                        </option>
-
-                        {{-- Lista de meses --}}
-                        @foreach([
-                            'Enero','Febrero','Marzo','Abril',
-                            'Mayo','Junio','Julio','Agosto',
-                            'Septiembre','Octubre','Noviembre','Diciembre'
-                        ] as $i => $m)
-
-                            <option value="{{ sprintf('%02d', $i+1) }}">
-                                {{ $m }}
-                            </option>
-
-                        @endforeach
-                    </select>
-                </div>
-
                 {{-- =========================================================
                      BOTÓN GENERAR GRÁFICA
                 ========================================================== --}}
@@ -184,7 +190,7 @@
 
                     {{-- Área visual de Chart.js --}}
                     <div class="grafico-container">
-
+                        <div id="modoIndicador" class="mb-2 font-weight-bold text-primary"></div>
                         <canvas id="canvasIndividual"></canvas>
 
                     </div>
@@ -354,238 +360,143 @@
     | Genera la gráfica individual del empleado seleccionado.
     |--------------------------------------------------------------------------
     */
+
+
     function generarGraficaIndividual() {
+    const emp = document.getElementById('empleado_id').value;
+    const anios = obtenerAniosSeleccionados();
+    const mes = document.getElementById('mes_v').value;
 
-        // Obtener filtros
-        const emp = document.getElementById('empleado_id').value;
-        const anio = document.getElementById('anio_v').value;
-        const mes = document.getElementById('mes_v').value;
-
-        /*
-        |--------------------------------------------------------------------------
-        | Validar empleado seleccionado
-        |--------------------------------------------------------------------------
-        */
-        if (!emp) {
-
-            Swal.fire(
-                'Atención',
-                'Debe seleccionar un empleado.',
-                'warning'
-            );
-
-            return;
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | Mostrar loading
-        |--------------------------------------------------------------------------
-        */
-        Swal.fire({
-            title: 'Generando gráfica...',
-            didOpen: () => { Swal.showLoading(); }
-        });
-
-        /*
-        |--------------------------------------------------------------------------
-        | URL de consulta
-        |--------------------------------------------------------------------------
-        */
-        const url = `
-            {{ route('graficas.data.individual') }}
-            ?empleado_id=${emp}
-            &anio=${anio}
-            &mes=${mes}
-        `;
-
-        /*
-        |--------------------------------------------------------------------------
-        | Petición AJAX
-        |--------------------------------------------------------------------------
-        */
-        fetch(url)
-
-            .then(response => response.json())
-
-            .then(data => {
-
-                Swal.close();
-                
-                /*
-                |--------------------------------------------------------------------------
-                | Destruir gráfica anterior
-                |--------------------------------------------------------------------------
-                */
-                if (miGraficaInd) {
-
-                    miGraficaInd.destroy();
-
-                    miGraficaInd = null;
-                }
-                
-                /*
-                |--------------------------------------------------------------------------
-                | Validar si no hay datos
-                |--------------------------------------------------------------------------
-                */
-                if(!data.valores || data.valores.length === 0){
-
-                    Swal.fire(
-                        'Sin registros',
-                        'No se encontraron evaluaciones para los filtros seleccionados.',
-                        'info'
-                    );
-
-                    return;
-                }
-
-                /*
-                |--------------------------------------------------------------------------
-                | Contexto del canvas
-                |--------------------------------------------------------------------------
-                */
-                const ctx = document
-                    .getElementById('canvasIndividual')
-                    .getContext('2d');
-
-                /*
-                |--------------------------------------------------------------------------
-                | Crear nueva gráfica
-                |--------------------------------------------------------------------------
-                */
-                miGraficaInd = new Chart(ctx, {
-
-                    // Tipo de gráfica
-                    type: 'line',
-
-                    // Datos
-                    data: {
-
-                        // Etiquetas eje X
-                        labels: data.labels,
-
-                        // Dataset principal
-                        datasets: [{
-
-                            label: 'Desempeño %',
-
-                            data: data.valores,
-
-                            borderColor: '#36b9cc',
-
-                            backgroundColor: 'rgba(54, 185, 204, 0.2)',
-
-                            pointBackgroundColor: '#ffffff',
-
-                            pointBorderColor: '#36b9cc',
-
-                            pointRadius: 6,
-
-                            fill: true,
-
-                            tension: 0.3
-                        }]
-                    },
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Configuración visual
-                    |--------------------------------------------------------------------------
-                    */
-                    options: {
-
-                        responsive: true,
-
-                        maintainAspectRatio: false,
-
-                        scales: {
-
-                            /*
-                            |--------------------------------------------------------------------------
-                            | Eje Y
-                            |--------------------------------------------------------------------------
-                            */
-                            y: {
-
-                                beginAtZero: true,
-
-                                max: 110,
-
-                                grid: {
-                                    color: 'rgba(255,255,255,0.1)'
-                                },
-
-                                ticks: {
-                                    color: '#ffffff',
-                                    font: { weight: 'bold' }
-                                }
-                            },
-
-                            /*
-                            |--------------------------------------------------------------------------
-                            | Eje X
-                            |--------------------------------------------------------------------------
-                            */
-                            x: {
-
-                                grid: {
-                                    display: false
-                                },
-
-                                ticks: {
-                                    color: '#ffffff',
-                                    font: { size: 11 }
-                                }
-                            }
-                        },
-
-                        /*
-                        |--------------------------------------------------------------------------
-                        | Plugins
-                        |--------------------------------------------------------------------------
-                        */
-                        plugins: {
-
-                            // Ocultar leyenda
-                            legend: {
-                                display: false
-                            },
-
-                            // Etiquetas sobre los puntos
-                            datalabels: {
-
-                                color: '#ffffff',
-
-                                align: 'top',
-
-                                offset: 6,
-
-                                font: {
-                                    weight: 'bold',
-                                    size: 12
-                                },
-
-                                formatter: (val) => val + '%'
-                            }
-                        }
-                    }
-                });
-            })
-
-            .catch(error => {
-
-                Swal.close();
-
-                console.error(error);
-
-                Swal.fire(
-                    'Error',
-                    'No se pudieron procesar los datos de la gráfica.',
-                    'error'
-                );
-            });
+    if (!emp || anios.length === 0) {
+        Swal.fire('Atención', 'Seleccione empleado y al menos un año.', 'warning');
+        return;
     }
+
+    Swal.fire({ title: 'Generando gráfica...', didOpen: () => Swal.showLoading() });
+
+    let url = `{{ route('graficas.data.individual') }}?empleado_id=${emp}`;
+    anios.forEach(a => url += `&anios[]=${a}`);
+    if (mes && mes !== 'todo') url += `&mes=${mes}`;
+
+    fetch(url)
+        .then(r => r.json())
+        .then(data => {
+            Swal.close();
+            if (miGraficaInd) miGraficaInd.destroy();
+
+            const ctx = document.getElementById('canvasIndividual').getContext('2d');
+            const colores = ['#3498db', '#e74c3c', '#2ecc71', '#f1c40f'];
+
+            const datasets = Object.keys(data.series).map((anio, index) => ({
+                label: anio,
+                data: data.series[anio],
+                backgroundColor: colores[index % colores.length],
+                borderRadius: 5,
+                barPercentage: 0.7
+            }));
+
+            miGraficaInd = new Chart(ctx, {
+                type: 'bar',
+                data: { labels: data.labels, datasets: datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, ticks: { precision: 0 } },
+                        x: { grid: { display: false } }
+                    },
+                    plugins: { legend: { position: 'top' } }
+                }
+            });
+        })
+        .catch(err => {
+            console.error(err);
+            Swal.fire('Error', 'No se pudo generar la gráfica', 'error');
+        });
+    }
+
+    function obtenerAniosSeleccionados() {
+      return Array.from(
+          document.querySelectorAll('.anio-check:checked')
+        ).map(c => c.value);
+    }
+
+    function actualizarModoUI() {
+
+    const anios = obtenerAniosSeleccionados();
+
+    const mesContainer = document.getElementById('mesContainer');
+
+    const indicador = document.getElementById('modoIndicador');
+
+    if (anios.length > 1) {
+
+        mesContainer.style.display = 'block';
+
+        indicador.innerHTML = '🔵 Modo comparativo (años múltiples)';
+
+    } else {
+
+        mesContainer.style.display = 'none';
+
+        document.getElementById('mes_v').value = 'todo';
+
+        indicador.innerHTML = '🟢 Modo normal (1 año)';
+    }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | FUNCIONES PARA EL FILTRO DE AÑOS
+    |--------------------------------------------------------------------------
+    | Controla la visibilidad del menú desplegable y la lógica de selección.
+    |--------------------------------------------------------------------------
+    */
+    
+    // 1. Abrir/Cerrar menú principal
+    function toggleMenu() {
+    const menu = document.getElementById('menuAnios');
+    menu.classList.toggle('show');
+    }
+
+    // 2. Cerrar si se hace clic fuera de todo el componente
+    document.addEventListener('click', function(event) {
+    const menu = document.getElementById('menuAnios');
+    const btn = document.getElementById('btnAnios');
+    
+    // Si el clic no es en el botón ni dentro del menú, cerrar
+    if (!btn.contains(event.target) && !menu.contains(event.target)) {
+        menu.classList.remove('show');
+    }
+    });
+
+    // 3. Lógica al marcar un checkbox
+    document.querySelectorAll('.anio-check').forEach(item => {
+    item.addEventListener('change', function() {
+        const checked = document.querySelectorAll('.anio-check:checked');
+        const btn = document.getElementById('btnAnios');
+        
+        // Actualizar el texto del botón
+        if (checked.length === 0) {
+            btn.innerHTML = 'Seleccionar años... <i class="fas fa-caret-down"></i>';
+        } else if (checked.length === 1) {
+            btn.innerHTML = checked[0].value + ' <i class="fas fa-caret-down"></i>';
+        } else {
+            btn.innerHTML = checked.length + ' años seleccionados <i class="fas fa-caret-down"></i>';
+        }
+        
+        // Ejecutar tu lógica de modo
+        actualizarModoUI();
+
+        // --- EL TRUCO PARA EL CIERRE ---
+        // Usamos un pequeño timeout para asegurar que el navegador procese el clic
+        // antes de cerrar el menú.
+        setTimeout(() => {
+            document.getElementById('menuAnios').classList.remove('show');
+        }, 100);
+    });
+    });
+
 </script>
 
 @endsection
