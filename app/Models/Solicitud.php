@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model; 
 // Clase base de Eloquent que habilita el ORM para interactuar con la base de datos
 
+use App\Notifications\NuevaSolicitud; 
 
 class Solicitud extends Model
 {
@@ -75,6 +76,34 @@ class Solicitud extends Model
     public function firma_empleado()
     {
      return $this->belongsTo(Firma::class, 'firma_empleado_id');
+    }
+
+    /**
+     * MÉTODO: booted
+     * Este método se ejecuta automáticamente cuando el modelo arranca.
+     * Es ideal para capturar eventos del ciclo de vida (como 'created').
+     */
+    protected static function booted()
+    {
+        static::created(function ($solicitud) {
+
+            // 1. Buscar el departamento por nombre
+            $departamento = Departamento::where('nombre', $solicitud->departamento)->first();
+            
+            // 2. Verificar si existe y tiene un jefe asignado
+            if ($departamento && $departamento->jefe_empleado_id) {
+                
+                // 3. Buscar al usuario (jefe) basado en el empleado_id que es jefe
+                $jefe = User::whereHas('empleado', function($query) use ($departamento) {
+                    $query->where('id', $departamento->jefe_empleado_id);
+                })->first();
+
+                // 4. Si encontramos al jefe, disparar la notificación
+                if ($jefe) {
+                    $jefe->notify(new \App\Notifications\NuevaSolicitud($solicitud));
+                }
+            }
+        });
     }
 
 }

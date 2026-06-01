@@ -68,7 +68,8 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse($solicitudes as $solicitud)
+                       
+                        @forelse(isset($solicitudes) ? $solicitudes : [] as $solicitud)
                             @php
                                 $aprobaciones = $solicitud->aprobaciones ?? collect();
                                 $estadoDB = strtolower($solicitud->estado);
@@ -188,9 +189,11 @@
                         @endforelse
                     </tbody>
                 </table>
-                <div class="d-flex justify-content-center mt-4 custom-pagination">
-                  {{ $solicitudes->appends(request()->query())->links('pagination::bootstrap-5') }}
-                </div>
+                @if(isset($solicitudes) && method_exists($solicitudes, 'links'))
+    <div class="d-flex justify-content-center mt-4 custom-pagination">
+        {{ $solicitudes->appends(request()->query())->links('pagination::bootstrap-5') }}
+    </div>
+@endif
             </div>
         </div>
     </div>

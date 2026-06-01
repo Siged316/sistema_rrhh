@@ -69,4 +69,6 @@ class Kernel extends HttpKernel
         'check.password.change' => \App\Http\Middleware\CheckPasswordChange::class,
         'force.password.change' => \App\Http\Middleware\ForcePasswordChange::class,
     ];
+
+    
 }

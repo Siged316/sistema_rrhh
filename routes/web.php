@@ -424,7 +424,8 @@ Route::middleware(['auth', 'force.password.change'])->group(function () {
     // Mis evaluaciones
     Route::get('/mis-evaluaciones', [EvaluacionController::class, 'index'])
         ->name('evaluaciones.pendientes');
-
+Route::post('/evaluaciones/guardar', [EvaluacionController::class, 'guardar'])
+    ->name('evaluaciones.guardar');
 
     /*
     |--------------------------------------------------------------------------
@@ -567,6 +568,40 @@ Route::prefix('informes/graficas')->group(function () {
         ->name('graficas.data.compensatorio');
 });
 
+// Crea una ruta temporal en web.php
+Route::get('/test-notificacion', function() {
+    $jefe = \App\Models\User::find(TU_ID_DE_JEFE); // Pon tu ID aquí
+    $jefe->notify(new \App\Notifications\NuevaSolicitud(\App\Models\Empleado::first(), 1));
+    return "Notificación enviada a la BD";
+});
+
+Route::get('/test-notificacion-horas', function() {
+    // 1. Tomamos una solicitud real
+    $horaExtra = \App\Models\HoraExtra::latest()->first();
+    if (!$horaExtra) return "No hay horas extras.";
+
+    // 2. Buscamos al jefe del departamento de esa hora extra
+    // (Ajusta 'departamento_id' según la columna real en tu tabla)
+    $depto = \App\Models\Departamento::where('nombre', $horaExtra->departamento)->first();
+    
+    if ($depto && $depto->jefe_empleado_id) {
+        $jefe = \App\Models\User::whereHas('empleado', function($q) use ($depto) {
+            $q->where('id', $depto->jefe_empleado_id);
+        })->first();
+
+        if ($jefe) {
+            $jefe->notify(new \App\Notifications\NuevaHoraExtra($horaExtra));
+            return "Notificación enviada al Jefe del Depto: " . $jefe->email;
+        }
+    }
+    
+    return "No se pudo encontrar un jefe para ese departamento.";
+});
+
+Route::post('/notificaciones/marcar-leidas', function () {
+    auth()->user()->unreadNotifications->markAsRead();
+    return back()->with('success', 'Todas las notificaciones marcadas como leídas.');
+})->name('notificaciones.marcarLeidas')->middleware('auth');
 /*
 |--------------------------------------------------------------------------
 | REDIRECCIÓN FINAL DEL SISTEMA

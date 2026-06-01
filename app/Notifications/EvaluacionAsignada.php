@@ -32,4 +32,5 @@ class EvaluacionAsignada extends Notification
             'formulario_id' => $this->formulario_id,
         ];
     }
+
 }

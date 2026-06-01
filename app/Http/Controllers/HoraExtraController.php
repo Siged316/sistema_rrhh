@@ -16,6 +16,7 @@ use App\Mail\HorasExtraMail;
 use App\Mail\HorasCargadasMail;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Storage;
+use App\Notifications\NuevaHoraExtra;
 
 
 class HoraExtraController extends Controller
@@ -159,7 +160,16 @@ public function store(Request $request)
         }
 
         DB::commit();
+
+        try {
+            $this->notificarSiguienteResponsable($horaExtra);
+        } catch (\Exception $e) {
+            \Log::error("La solicitud se guardó, pero falló la notificación: " . $e->getMessage());
+        }
+
         return redirect()->back()->with('success', 'Solicitud registrada y firmada correctamente.');
+
+        
 
     } catch (\Exception $e) {
         DB::rollBack();
@@ -293,6 +303,11 @@ private function sumarHorasReloj($arreglo) {
                   $soliMail = \App\Models\HoraExtra::with(['empleado', 'detalles'])->find($id);
                  $pasosConfigurados = DB::table('flujo_firmas_config')->where('activo', 1)->orderBy('id', 'asc')->get();
 
+                 // Si no es el final, notificamos al siguiente
+
+                   $solicitudActualizada = \App\Models\HoraExtra::find($id);
+                   $this->notificarSiguienteResponsable($solicitudActualizada);
+
                    $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('horas_extras.formato_pdf', [
                       'solicitud' => $soliMail,
                       'pasosConfigurados' => $pasosConfigurados,
@@ -386,7 +401,7 @@ private function sumarHorasReloj($arreglo) {
     }
 
     // Gestión de las horas
-    public function gestion(Request $request)
+      public function gestion(Request $request)
     {
      $user = auth()->user();
      $empleadoLogueado = $user->empleado;
@@ -511,6 +526,92 @@ private function sumarHorasReloj($arreglo) {
          'totalConsumidas', 'totalPendientesSolicitud', 'saldoRestante', 
          'esAdmin', 'esGTH', 'esJefe', 'departamentos', 'empleadoAConsultar', 'esBusquedaActiva'
         ));
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Notificar responsable fijo (usuario ID 1)
+    |--------------------------------------------------------------------------
+    | Este método envía una notificación de prueba o respaldo al usuario
+    | con ID 1. Incluye registros en el log para facilitar la depuración
+    | y captura cualquier excepción que ocurra durante el proceso.
+    |--------------------------------------------------------------------------
+    */
+    protected function notificarSiguienteResponsable($horaExtra)
+    {
+    try {
+
+        // Buscar usuario con ID 1
+        $usuario = \App\Models\User::find(1);
+
+        // Validar que exista
+        if (!$usuario) {
+            \Log::error('NO EXISTE USUARIO 1');
+            return;
+        }
+
+        // Registrar información antes de enviar la notificación
+        \Log::info('ANTES DEL NOTIFY', [
+            'user_id' => $usuario->id,
+            'hora_extra_id' => $horaExtra->id,
+        ]);
+
+        // Enviar notificación
+        $usuario->notify(new \App\Notifications\NuevaHoraExtra($horaExtra));
+
+        // Confirmar envío en log
+        \Log::info('DESPUES DEL NOTIFY');
+
+    } catch (\Throwable $e) {
+
+        // Registrar cualquier error ocurrido durante el envío
+        \Log::error('ERROR EN NOTIFICACION HORAS EXTRA', [
+            'mensaje' => $e->getMessage(),
+            'archivo' => $e->getFile(),
+            'linea' => $e->getLine(),
+        ]);
+    }
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Notificar jefe del departamento
+    |--------------------------------------------------------------------------
+    | Obtiene el empleado relacionado con la hora extra, localiza su
+    | departamento, identifica al jefe asignado y le envía una
+    | notificación al usuario asociado.
+    |--------------------------------------------------------------------------
+    */
+    private function notificarJefeDepartamento($horaExtra)
+    {
+    // Obtener empleado asociado a la solicitud
+    $empleado = $horaExtra->empleado;
+
+    // Validar que exista y tenga departamento asignado
+    if (!$empleado || !$empleado->departamento_id) {
+        return;
+    }
+
+    // Buscar departamento del empleado
+    $departamento = \App\Models\Departamento::find($empleado->departamento_id);
+
+    // Validar que exista el departamento y tenga jefe asignado
+    if (!$departamento || !$departamento->jefe_id) {
+        return;
+    }
+
+    // Obtener empleado que actúa como jefe
+    $jefeEmpleado = \App\Models\Empleado::find($departamento->jefe_id);
+
+    // Validar que exista y tenga usuario relacionado
+    if (!$jefeEmpleado || !$jefeEmpleado->user) {
+        return;
+    }
+
+    // Enviar notificación al jefe del departamento
+    $jefeEmpleado->user->notify(
+        new \App\Notifications\NuevaHoraExtra($horaExtra)
+    );
     }
 }
 

@@ -29,101 +29,93 @@ class SolicitudController extends Controller
    * ---------------------------------
    * Lista solicitudes con filtros por rol + orden inteligente.
    */
-   public function index(Request $request)
-   {
+ public function index(Request $request)
+{
     $user = Auth::user();
-
-    $rol = strtolower(trim($user->rol->nombre ?? ''));
+    $rol = trim($user->rol->nombre);
     $empleadoId = $user->empleado->id ?? null;
-    $userEmail = strtolower(trim($user->email ?? ''));
+    $miDepto = $user->empleado->departamento->nombre ?? null;
+    $userEmail = $user->email;
 
-    $query = Solicitud::query();
+    $query = Solicitud::with('empleado');
 
-    /*
-    |--------------------------------------------------------------------------
-    | ADMIN Y GTH VEN TODO
-    |--------------------------------------------------------------------------
-    */
-    if (
-        $rol === 'administrador' ||
-        $rol === 'gth'
-    ) {
-
-        // Ve todo
-
+    // --- 1. FILTROS DE SEGURIDAD/VISIBILIDAD ---
+    if ($rol === 'Administrador' || $rol === 'GTH') {
+        // Ven todo
+    } elseif ($rol === 'Jefe Inmediato') {
+        $query->where('departamento', $miDepto);
     } else {
-
-        /*
-        |--------------------------------------------------------------------------
-        | BUSCAR DEPARTAMENTOS DONDE EL USUARIO ES JEFE
-        |--------------------------------------------------------------------------
-        */
-        $departamentosJefe = \App\Models\Departamento::where(
-            'jefe_empleado_id',
-            $empleadoId
-        )->pluck('nombre');
-
-        /*
-        |--------------------------------------------------------------------------
-        | SI ES JEFE DE ALGÚN DEPTO
-        |--------------------------------------------------------------------------
-        */
-        if ($departamentosJefe->count() > 0) {
-
-            $query->where(function ($q) use ($departamentosJefe, $userEmail) {
-
-                /*
-                |--------------------------------------------------------------------------
-                | VE SOLICITUDES DE SUS DEPARTAMENTOS
-                |--------------------------------------------------------------------------
-                */
-                $q->whereIn('departamento', $departamentosJefe)
-
-                /*
-                |--------------------------------------------------------------------------
-                | Y SUS PROPIAS SOLICITUDES
-                |--------------------------------------------------------------------------
-                */
-                ->orWhereRaw('LOWER(correo) = ?', [$userEmail]);
-            });
-
-        } else {
-
-            /*
-            |--------------------------------------------------------------------------
-            | EMPLEADO NORMAL
-            |--------------------------------------------------------------------------
-            */
-            $query->whereRaw('LOWER(correo) = ?', [$userEmail]);
-        }
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | FILTROS
-    |--------------------------------------------------------------------------
-    */
-    if ($request->filled('search')) {
-
-        $query->where('nombre', 'LIKE', '%' . trim($request->search) . '%');
-    }
-
-    if ($request->filled('mes')) {
-
-        $query->where(function ($q) use ($request) {
-
-            $q->whereMonth('fecha_inicio', $request->mes)
-              ->orWhereMonth('fecha_fin', $request->mes);
+        $nombreUsuario = $user->empleado ? ($user->empleado->nombre . ' ' . $user->empleado->apellido) : null;
+        $query->where(function($q) use ($nombreUsuario, $userEmail) {
+            if (!empty(trim($nombreUsuario))) {
+                $q->where('solicitudes.nombre', 'LIKE', '%' . trim($nombreUsuario) . '%');
+            }
+            $q->orWhere('solicitudes.correo', $userEmail);
         });
     }
 
-    $solicitudes = $query->orderBy('created_at', 'desc')
-                        ->paginate(5)
-                        ->withQueryString();
+    // --- 2. FILTROS DEL BUSCADOR Y FECHAS ---
+    if ($request->filled('search')) {
+        $query->where('solicitudes.nombre', 'LIKE', '%' . $request->search . '%');
+    }
+
+    if ($request->filled('mes')) {
+        $query->where(function($q) use ($request) {
+            $q->whereMonth('solicitudes.fecha_inicio', $request->mes)
+              ->orWhereMonth('solicitudes.fecha_fin', $request->mes);
+        });
+    }
+
+    if ($request->filled('fecha_rango')) {
+        $input = trim($request->fecha_rango);
+        try {
+            if (str_contains($input, ' to ')) {
+                $partes = explode(' to ', $input);
+                $inicio = \Carbon\Carbon::createFromFormat('d/m/Y', trim($partes[0]))->format('Y-m-d');
+                $fin = \Carbon\Carbon::createFromFormat('d/m/Y', trim($partes[1]))->format('Y-m-d');
+                $query->where(function($q) use ($inicio, $fin) {
+                    $q->whereBetween('solicitudes.fecha_inicio', [$inicio, $fin])
+                      ->orWhereBetween('solicitudes.fecha_fin', [$inicio, $fin]);
+                });
+            } else {
+                $fechaUnica = \Carbon\Carbon::createFromFormat('d/m/Y', $input)->format('Y-m-d');
+                $query->where('solicitudes.fecha_inicio', '<=', $fechaUnica)
+                      ->where('solicitudes.fecha_fin', '>=', $fechaUnica);
+            }
+        } catch (\Exception $e) {
+            \Log::error("Error en fecha: " . $e->getMessage());
+        }
+    }
+
+    // --- 3. BLINDAJE DE LA CONSULTA Y PAGINACIÓN ---
+    try {
+        $solicitudes = $query->leftJoin('departamentos', function($join) {
+            $join->on('solicitudes.departamento', '=', \DB::raw('departamentos.nombre COLLATE utf8mb4_unicode_ci'));
+        })
+        ->select('solicitudes.*')
+        ->orderByRaw("
+            CASE 
+                WHEN (departamentos.jefe_empleado_id = ? AND (SELECT COUNT(*) FROM solicitud_aprobaciones WHERE solicitud_id = solicitudes.id) = 0) THEN 1
+                WHEN (? = 'GTH' AND (SELECT COUNT(*) FROM solicitud_aprobaciones WHERE solicitud_id = solicitudes.id AND paso_orden = 1) = 1 
+                      AND (SELECT COUNT(*) FROM solicitud_aprobaciones WHERE solicitud_id = solicitudes.id AND paso_orden = 2) = 0) THEN 1
+                WHEN (SELECT COUNT(*) FROM solicitud_aprobaciones WHERE solicitud_id = solicitudes.id) = 1 
+                      AND solicitudes.estado != 'rechazado' THEN 2
+                WHEN (SELECT COUNT(*) FROM solicitud_aprobaciones WHERE solicitud_id = solicitudes.id) >= 2 
+                      OR solicitudes.estado = 'aprobado' THEN 3
+                ELSE 4
+            END ASC
+        ", [$empleadoId, $rol])
+        ->orderBy('solicitudes.created_at', 'desc')
+        ->paginate(10)
+        ->withQueryString();
+    } catch (\Exception $e) {
+        // En caso de error técnico, retornamos un paginador vacío para que el index no falle
+        \Log::error("Error en index de solicitudes: " . $e->getMessage());
+        $solicitudes = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 10);
+    }
 
     return view('solicitudes.index', compact('solicitudes'));
-   }
-
+}
 
    /**
    * MÉTODO: store
@@ -131,7 +123,7 @@ class SolicitudController extends Controller
    * Procesa y guarda una firma como imagen binaria.
    * Se utiliza cuando el usuario sube su firma.
    */
-    public function show($id)
+   public function show($id)
     {
       $solicitud = Solicitud::with('empleado', 'aprobaciones.firma')->findOrFail($id);
       $empleado = $solicitud->empleado;

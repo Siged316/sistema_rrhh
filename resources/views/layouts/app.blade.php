@@ -345,106 +345,76 @@
             <!-- NOTIFICACIONES -->
             <!-- ================================================= -->
 
-            <div class="dropdown me-3">
+          <div class="dropdown me-3">
+             <a class="nav-link position-relative p-0"
+              href="#"
+              id="bellIcon"
+              data-bs-toggle="dropdown"
+              aria-expanded="false">
+              <i class="fas fa-bell text-white fs-4"></i>
 
-                <!-- Icono campana -->
-                <a class="nav-link position-relative p-0"
-                   href="#"
-                   id="bellIcon"
-                   data-bs-toggle="dropdown"
-                   aria-expanded="false">
+               @if(auth()->user()->unreadNotifications->count() > 0)
+                  <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                      style="font-size: 0.6rem; padding: 0.2rem 0.4rem;">
+                      {{ auth()->user()->unreadNotifications->count() }}
+                  </span>
+               @endif
+               </a>
 
-                    <i class="fas fa-bell text-white fs-4"></i>
+              <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-4 mt-2"
+                 style="width: 320px; max-height: 400px; overflow-y: auto;">
 
-                    <!-- Badge contador -->
-                    @if(auth()->user()->unreadNotifications->count() > 0)
+                  <li class="p-3 border-bottom">
+                     <h6 class="fw-bold mb-0">Notificaciones</h6>
+                  </li>
 
-                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
-                              style="font-size: 0.6rem;
-                                     padding: 0.2rem 0.4rem;">
+                   @forelse(auth()->user()->notifications as $notificacion)
+                     @php
+                          $tipo = $notificacion->data['tipo'] ?? 'solicitud';
+                          $url = $notificacion->data['url'] ?? route('solicitudes.show', $notificacion->data['solicitud_id'] ?? 0);
+                
+                          $icono = match($tipo) {
+                         'solicitud'    => 'fa-file-invoice',
+                          'horas_extras' => 'fa-clock',
+                          default        => 'fa-bell'
+                           };
 
-                            {{ auth()->user()->unreadNotifications->count() }}
-                        </span>
+                          $color = match($tipo) {
+                             'solicitud'    => 'text-info',
+                             'horas_extras' => 'text-warning',
+                              default        => 'text-primary'
+                            };
+                        @endphp
 
-                    @endif
-                </a>
+                        <li class="p-0 border-bottom {{ $notificacion->read_at ? 'bg-light' : '' }}">
+                          <a href="{{ $url }}" class="p-3 text-decoration-none d-flex align-items-center text-dark">
+                             <i class="fas {{ $icono }} {{ $color }} me-3 fs-5"></i>
+                             <div>
+                                 <p class="mb-0 small fw-bold">{{ $notificacion->data['mensaje'] ?? 'Sin mensaje' }}</p>
+                                 <small class="text-muted" style="font-size: 0.7rem;">
+                                      {{ $notificacion->created_at->diffForHumans() }}
+                                 </small>
+                              </div>
+                           </a>
+                      </li>
+                   @empty
+                       <li class="p-4 text-center">
+                          <i class="fa-solid fa-bell-slash text-muted mb-2 fs-3"></i>
+                          <p class="text-muted small mb-0">No tienes notificaciones pendientes</p>
+                       </li>
+                  @endforelse
 
-
-                <!-- Dropdown notificaciones -->
-                <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-4 mt-2"
-                    style="width: 300px;
-                           max-height: 400px;
-                           overflow-y: auto;">
-
-                    <!-- Encabezado -->
-                    <li class="p-3 border-bottom">
-
-                        <h6 class="fw-bold mb-0">
-                            Notificaciones
-                        </h6>
-                    </li>
-
-
-                    <!-- Recorremos notificaciones -->
-                    @forelse(auth()->user()->unreadNotifications as $notificacion)
-
-                    <li>
-
-                        <a class="dropdown-item p-3 border-bottom text-wrap"
-                           href="{{ $notificacion->data['url'] ?? route('evaluaciones.index') }}">
-
-                            <div class="d-flex align-items-start">
-
-                                <i class="fa-solid fa-clipboard-check text-primary me-2 mt-1"></i>
-
-                                <div>
-
-                                    <!-- Mensaje -->
-                                    <p class="mb-0 small text-dark">
-
-                                        {{ $notificacion->data['mensaje']
-                                            ?? 'Nueva notificación' }}
-                                    </p>
-
-                                    <!-- Fecha -->
-                                    <small class="text-muted">
-
-                                        {{ $notificacion->created_at->diffForHumans() }}
-                                    </small>
-                                </div>
-                            </div>
-                        </a>
-                    </li>
-
-                    @empty
-
-                    <!-- Sin notificaciones -->
-                    <li class="p-4 text-center">
-
-                        <i class="fa-solid fa-bell-slash text-muted mb-2 fs-3"></i>
-
-                        <p class="text-muted small mb-0">
-                            No tienes notificaciones pendientes
-                        </p>
-                    </li>
-
-                    @endforelse
-
-
-                    <!-- Botón marcar como leídas -->
-                    @if(auth()->user()->unreadNotifications->count() > 0)
-
-                    <li class="text-center p-2 border-top">
-
-                        <a href="#"
-                           class="text-primary small fw-bold text-decoration-none">
-
-                            Marcar todas como leídas
-                        </a>
-                    </li>
-
-                    @endif
-                </ul>
+                   @if(auth()->user()->unreadNotifications->count() > 0)
+                        <li class="text-center p-2 border-top">
+                      <form action="{{ route('notificaciones.marcarLeidas') }}" method="POST">
+                           @csrf
+                          <button type="submit" class="btn btn-link btn-sm text-primary fw-bold text-decoration-none">
+                              Marcar todas como leídas
+                          </button>
+                      </form>
+                      </li>
+                   @endif
+              </ul>
             </div>
 
 
