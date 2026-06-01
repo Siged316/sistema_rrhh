@@ -5,7 +5,7 @@
 ========================= */
 
 namespace App\Http\Controllers; // Define el namespace del controlador
-
+use Illuminate\Support\Str;              // centraliza toda la lógica de manipulación de texto en un solo lugar
 use App\Models\Solicitud;               // Modelo de solicitudes
 use App\Models\Empleado;                // Modelo de empleados
 use App\Models\PoliticaVacaciones;      // Modelo de políticas de vacaciones
@@ -29,71 +29,87 @@ class SolicitudController extends Controller
    * ---------------------------------
    * Lista solicitudes con filtros por rol + orden inteligente.
    */
- public function index(Request $request)
-{
-    $user = Auth::user();
-    $rol = trim($user->rol->nombre);
-    $empleadoId = $user->empleado->id ?? null;
-    $miDepto = $user->empleado->departamento->nombre ?? null;
-    $userEmail = $user->email;
+   public function index(Request $request)
+    {
+      $user = Auth::user();
+      $rol = trim($user->rol->nombre ?? '');
+      $rolNormalizado = Str::of($rol)
+      ->ascii()
+      ->lower()
+      ->squish()
+      ->toString();
+      $rolNormalizado = str_replace(
+         ['á', 'é', 'í', 'ó', 'ú', 'ñ'],
+         ['a', 'e', 'i', 'o', 'u', 'n'],
+         $rolNormalizado
+        );
 
-    $query = Solicitud::with('empleado');
+      $empleadoId = $user->empleado->id ?? null;
+      $miDepto = $user->empleado->departamento->nombre ?? null;
+      $userEmail = $user->email;
 
-    // --- 1. FILTROS DE SEGURIDAD/VISIBILIDAD ---
-    if ($rol === 'Administrador' || $rol === 'GTH') {
-        // Ven todo
-    } elseif ($rol === 'Jefe Inmediato') {
-        $query->where('departamento', $miDepto);
-    } else {
-        $nombreUsuario = $user->empleado ? ($user->empleado->nombre . ' ' . $user->empleado->apellido) : null;
-        $query->where(function($q) use ($nombreUsuario, $userEmail) {
-            if (!empty(trim($nombreUsuario))) {
-                $q->where('solicitudes.nombre', 'LIKE', '%' . trim($nombreUsuario) . '%');
-            }
-            $q->orWhere('solicitudes.correo', $userEmail);
-        });
-    }
+      $query = Solicitud::with('empleado');
 
-    // --- 2. FILTROS DEL BUSCADOR Y FECHAS ---
-    if ($request->filled('search')) {
-        $query->where('solicitudes.nombre', 'LIKE', '%' . $request->search . '%');
-    }
+      // --- 1. FILTROS DE SEGURIDAD/VISIBILIDAD ---
 
-    if ($request->filled('mes')) {
-        $query->where(function($q) use ($request) {
-            $q->whereMonth('solicitudes.fecha_inicio', $request->mes)
-              ->orWhereMonth('solicitudes.fecha_fin', $request->mes);
-        });
-    }
+       if (in_array($rolNormalizado, ['administrador', 'gth', 'direccion'], true)) {
+          // Ven todo sin excepciones
+        } elseif ($rolNormalizado === 'jefe inmediato') {
+          $query->where('departamento', $miDepto);
+        } else {
+          $nombreUsuario = $user->empleado
+          ? ($user->empleado->nombre . ' ' . $user->empleado->apellido)
+          : null;
 
-    if ($request->filled('fecha_rango')) {
-        $input = trim($request->fecha_rango);
-        try {
-            if (str_contains($input, ' to ')) {
-                $partes = explode(' to ', $input);
-                $inicio = \Carbon\Carbon::createFromFormat('d/m/Y', trim($partes[0]))->format('Y-m-d');
-                $fin = \Carbon\Carbon::createFromFormat('d/m/Y', trim($partes[1]))->format('Y-m-d');
-                $query->where(function($q) use ($inicio, $fin) {
-                    $q->whereBetween('solicitudes.fecha_inicio', [$inicio, $fin])
-                      ->orWhereBetween('solicitudes.fecha_fin', [$inicio, $fin]);
-                });
-            } else {
-                $fechaUnica = \Carbon\Carbon::createFromFormat('d/m/Y', $input)->format('Y-m-d');
-                $query->where('solicitudes.fecha_inicio', '<=', $fechaUnica)
-                      ->where('solicitudes.fecha_fin', '>=', $fechaUnica);
-            }
-        } catch (\Exception $e) {
-            \Log::error("Error en fecha: " . $e->getMessage());
+          $query->where(function($q) use ($nombreUsuario, $userEmail) {
+              if (!empty(trim($nombreUsuario ?? ''))) {
+                  $q->where('solicitudes.nombre', 'LIKE', '%' . trim($nombreUsuario) . '%');
+                }
+
+               $q->orWhere('solicitudes.correo', $userEmail);
+           });
         }
-    }
 
-    // --- 3. BLINDAJE DE LA CONSULTA Y PAGINACIÓN ---
-    try {
-        $solicitudes = $query->leftJoin('departamentos', function($join) {
-            $join->on('solicitudes.departamento', '=', \DB::raw('departamentos.nombre COLLATE utf8mb4_unicode_ci'));
-        })
-        ->select('solicitudes.*')
-        ->orderByRaw("
+       // --- 2. FILTROS DEL BUSCADOR Y FECHAS ---
+       if ($request->filled('search')) {
+          $query->where('solicitudes.nombre', 'LIKE', '%' . $request->search . '%');
+        }
+
+        if ($request->filled('mes')) {
+           $query->where(function($q) use ($request) {
+              $q->whereMonth('solicitudes.fecha_inicio', $request->mes)
+              ->orWhereMonth('solicitudes.fecha_fin', $request->mes);
+            });
+        }
+
+        if ($request->filled('fecha_rango')) {
+           $input = trim($request->fecha_rango);
+           try {
+              if (str_contains($input, ' to ')) {
+                  $partes = explode(' to ', $input);
+                  $inicio = \Carbon\Carbon::createFromFormat('d/m/Y', trim($partes[0]))->format('Y-m-d');
+                  $fin = \Carbon\Carbon::createFromFormat('d/m/Y', trim($partes[1]))->format('Y-m-d');
+                  $query->where(function($q) use ($inicio, $fin) {
+                       $q->whereBetween('solicitudes.fecha_inicio', [$inicio, $fin])
+                      ->orWhereBetween('solicitudes.fecha_fin', [$inicio, $fin]);
+                    });
+                } else {
+                  $fechaUnica = \Carbon\Carbon::createFromFormat('d/m/Y', $input)->format('Y-m-d');
+                  $query->where('solicitudes.fecha_inicio', '<=', $fechaUnica)
+                      ->where('solicitudes.fecha_fin', '>=', $fechaUnica);
+                }
+            } catch (\Exception $e) {
+              \Log::error("Error en fecha: " . $e->getMessage());
+            }
+        }
+
+       // --- 3. BLINDAJE DE LA CONSULTA Y PAGINACIÓN ---
+       try {
+          $solicitudes = $query->leftJoin('departamentos', function($join) {
+              $join->on('solicitudes.departamento', '=', \DB::raw('departamentos.nombre COLLATE utf8mb4_unicode_ci'));
+           })
+          ->select('solicitudes.*')
+          ->orderByRaw("
             CASE 
                 WHEN (departamentos.jefe_empleado_id = ? AND (SELECT COUNT(*) FROM solicitud_aprobaciones WHERE solicitud_id = solicitudes.id) = 0) THEN 1
                 WHEN (? = 'GTH' AND (SELECT COUNT(*) FROM solicitud_aprobaciones WHERE solicitud_id = solicitudes.id AND paso_orden = 1) = 1 
@@ -104,18 +120,19 @@ class SolicitudController extends Controller
                       OR solicitudes.estado = 'aprobado' THEN 3
                 ELSE 4
             END ASC
-        ", [$empleadoId, $rol])
-        ->orderBy('solicitudes.created_at', 'desc')
-        ->paginate(10)
-        ->withQueryString();
-    } catch (\Exception $e) {
-        // En caso de error técnico, retornamos un paginador vacío para que el index no falle
-        \Log::error("Error en index de solicitudes: " . $e->getMessage());
-        $solicitudes = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 10);
-    }
+            ", [$empleadoId, $rolNormalizado])
+            ->orderBy('solicitudes.created_at', 'desc')
+            ->paginate(10)
+            ->withQueryString();
+        } catch (\Exception $e) {
+           // En caso de error técnico, retornamos un paginador vacío para que el index no falle
+         // \Log::error("Error en index de solicitudes: " . $e->getMessage());
+         //  $solicitudes = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 10);
+           dd($e->getMessage());
+        }
 
-    return view('solicitudes.index', compact('solicitudes'));
-}
+       return view('solicitudes.index', compact('solicitudes'));
+    }
 
    /**
    * MÉTODO: store
