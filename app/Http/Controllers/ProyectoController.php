@@ -286,6 +286,7 @@ class ProyectoController extends Controller
 
         if (!$esJefe) {
             $tarea->estado = 'En Revision';
+            $tarea->fecha_entrega = now();
             $tarea->save();
         }
 
