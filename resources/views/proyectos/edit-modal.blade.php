@@ -221,6 +221,7 @@ function generarFilaTareaEdit(index, t = {}) {
 
     return `<tr>
         <input type="hidden" name="tareas[${index}][id]" value="${t.id || ''}">
+        <input type="hidden" name="tareas[${index}][estado]" value="${t.estado || 'Pendiente'}">
         
         <td><input name="tareas[${index}][titulo]" class="form-control" value="${t.titulo || ''}"></td>
         

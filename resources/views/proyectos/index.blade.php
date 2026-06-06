@@ -132,7 +132,14 @@
                             <td class="text-start ps-4"> {{-- El nombre del proyecto suele leerse mejor a la izquierda --}}
                                 <strong>{{ $proyecto->nombre }}</strong>
                             </td>
-                            <td>{{ $proyecto->usuario->usuario ?? 'N/A' }}</td>
+                           <td>
+                              {{-- Accede a la relación cargada en el controlador --}}
+                              @if($proyecto->usuario && $proyecto->usuario->empleado)
+                                 {{ $proyecto->usuario->empleado->nombre }} {{ $proyecto->usuario->empleado->apellido }}
+                               @else
+                                   {{ $proyecto->usuario->name ?? $proyecto->usuario->usuario ?? 'N/A' }}
+                                @endif
+                            </td>
                             <td>
                                 <div class="px-3"> {{-- Margen interno para que la barra no toque los bordes --}}
                                     <div class="progress" style="height: 18px; border-radius: 10px; background-color: #eaecf4;">

@@ -55,7 +55,7 @@ class ProyectoController extends Controller
         $rol = $this->rolActual($user); 
 
         // Query base con relaciones necesarias
-        $query = Proyecto::with(['usuario', 'designados'])
+        $query = Proyecto::with(['usuario', 'designados.empleado'])
             ->orderByDesc('created_at');
 
         // Si no es admin ni jefe, solo ve sus proyectos o donde está asignado
@@ -69,7 +69,7 @@ class ProyectoController extends Controller
         }
 
         // OJO: aquí tienes duplicado paginate + get (esto puede ser problema)
-        $proyectos = $query->get();
+        
         $proyectos = $query->paginate(5)->appends($request->all());
 
         // ID del proyecto seleccionado desde URL
@@ -84,7 +84,18 @@ class ProyectoController extends Controller
 
         // Construcción del diagrama de asignaciones
         if ($proyectoSeleccionado) {
-            $diagramaAsignaciones = $proyectoSeleccionado->designados->map(function ($u) use ($proyectoSeleccionado) {
+            // Filtramos para evitar nulos y mapeamos
+            $diagramaAsignaciones = $proyectoSeleccionado->designados->filter(function($u) {
+             return !is_null($u) && !is_null($u->id);
+            })->map(function ($u) use ($proyectoSeleccionado) {
+
+            // 1. Buscamos el empleado relacionado mediante el ID del usuario
+            $empleado = \App\Models\Empleado::where('user_id', $u->id)->first();
+    
+           // 2. Definimos el nombre: usamos Nombre + Apellido si existe
+          $nombreAMostrar = ($u->empleado) 
+          ? $u->empleado->nombre . ' ' . $u->empleado->apellido 
+          : ($u->name ?? $u->usuario);
 
                 // Obtener tareas por usuario usando asignado_user_id
                 $tareasAsignadas = \App\Models\Tarea::where('proyecto_id', $proyectoSeleccionado->id)
@@ -92,7 +103,7 @@ class ProyectoController extends Controller
                     ->get();
 
                 return [
-                    'usuario' => $u->usuario,
+                    'usuario' => $nombreAMostrar,
                     'es_encargado' => (int) $u->pivot->es_encargado === 1,
                     'tareas' => $tareasAsignadas,
                     'conteo' => $tareasAsignadas->count()
@@ -374,17 +385,37 @@ class ProyectoController extends Controller
      * VALIDACIÓN DEL JEFE + ENVÍO DE CORREO
      */
     public function validarJefe(Request $request)
-    {
-        try {
-            $tarea = Tarea::findOrFail($request->id);
+{
+    try {
+        // 1. Validar y actualizar la tarea actual
+        $tarea = Tarea::findOrFail($request->id);
+        $tarea->estado = 'Completado';
+        $tarea->completada = 1;
+        $tarea->save();
 
-            $tarea->estado = 'Completado';
-            $tarea->completada = 1;
-            $tarea->save();
+        // 2. Obtener el proyecto asociado
+        $proyecto = \App\Models\Proyecto::findOrFail($tarea->proyecto_id);
 
-            $usuario = \App\Models\User::find($tarea->asignado_user_id);
+        // 3. Lógica de validación: contar tareas pendientes
+        $totalTareas = Tarea::where('proyecto_id', $proyecto->id)->count();
+        $tareasCompletadas = Tarea::where('proyecto_id', $proyecto->id)
+                                  ->where('completada', 1)
+                                  ->count();
+
+        // 4. Determinar nuevo estado y progreso
+        if ($totalTareas > 0 && $totalTareas === $tareasCompletadas) {
+            $proyecto->estado = 'Completado';
+            $proyecto->progreso = 100;
+        } else {
+            $proyecto->estado = 'En Proceso';
+            $proyecto->progreso = ($totalTareas > 0) ? ($tareasCompletadas / $totalTareas) * 100 : 0;
+        }
+        $proyecto->save();
+
+        // 5. Envío de correo al empleado
+        $usuario = \App\Models\User::find($tarea->asignado_user_id);
+        if ($usuario) {
             $empleado = \App\Models\Empleado::where('user_id', $usuario->id)->first();
-
             if ($empleado && !empty($empleado->email)) {
                 try {
                     \Mail::to($empleado->email)
@@ -393,20 +424,23 @@ class ProyectoController extends Controller
                     \Log::error("Fallo al enviar correo IHCI: " . $e->getMessage());
                 }
             }
-
-            return response()->json([
-                'success' => true,
-                'proyecto_id' => $tarea->proyecto_id,
-                'nuevo_progreso' => $tarea->proyecto->progreso
-            ]);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'error' => $e->getMessage()
-            ], 500);
         }
+
+        // 6. Retornar respuesta al frontend con los datos actualizados
+        return response()->json([
+            'success' => true,
+            'proyecto_id' => $proyecto->id,
+            'nuevo_progreso' => $proyecto->progreso,
+            'nuevo_estado' => $proyecto->estado // Para actualizar el badge en el front
+        ]);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'error' => $e->getMessage()
+        ], 500);
     }
+}
 
     /**
      * ACTUALIZAR PROGRESO DEL PROYECTO
@@ -559,19 +593,26 @@ class ProyectoController extends Controller
         if ($request->has('tareas')) {
             foreach ($request->tareas as $tareaData) {
                 
-                // LÓGICA DE FECHA DE ENTREGA:
-                // Si el usuario marca como completado o si llega una fecha de entrega manual
-                if (isset($tareaData['estado']) && $tareaData['estado'] === 'Completado') {
-                    // Si no tiene fecha de entrega, le ponemos la de hoy
-                    if (empty($tareaData['fecha_entrega'])) {
-                        $tareaData['fecha_entrega'] = now(); 
-                    }
+                $tareaExistente = isset($tareaData['id']) ? Tarea::find($tareaData['id']) : null;
+
+                // LÓGICA CLAVE: Solo actualizamos fecha_entrega si:
+                // 1. El estado es 'En Revision' o 'Completado'
+                // 2. Y el empleado está cambiando el estado justo ahora.
+                $estaCambiandoEstado = $tareaExistente && $tareaData['estado'] !== $tareaExistente->estado;
+                
+                if (($tareaData['estado'] === 'En Revision' || $tareaData['estado'] === 'Completado') && 
+                    (empty($tareaData['fecha_entrega']) || $estaCambiandoEstado)) {
+                    $tareaData['fecha_entrega'] = now();
                 }
 
-                if (isset($tareaData['id']) && !empty($tareaData['id'])) {
-                    $tarea = Tarea::findOrFail($tareaData['id']);
-                    $tarea->update($tareaData);
-                    $tareasMantenerIds[] = $tarea->id;
+               // SI LA FECHA VIENE VACÍA EN EL FORMULARIO, NO LA SOBREESCRIBAS
+                if (empty($tareaData['fecha_entrega']) && $tareaExistente) {
+                    unset($tareaData['fecha_entrega']); 
+                }
+
+                if ($tareaExistente) {
+                    $tareaExistente->update($tareaData);
+                    $tareasMantenerIds[] = $tareaExistente->id;
                 } else {
                     $nuevaTarea = $proyecto->tareas()->create([
                         'titulo'           => $tareaData['titulo'],

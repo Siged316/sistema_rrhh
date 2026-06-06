@@ -127,4 +127,20 @@ public function formulario()
 {
     return $this->belongsTo(Formulario::class, 'formulario_id', 'id');
 }
+
+public function recalcularEstado()
+{
+    // Cuenta tareas que NO están completadas (completada = 0)
+    $tareasPendientes = $this->tareas()->where('completada', 0)->count();
+    
+    // Si no hay tareas pendientes y hay al menos una tarea, marcar como completado
+    if ($tareasPendientes === 0 && $this->tareas()->count() > 0) {
+        $this->estado = 'Completado';
+    } else {
+        // Si hay tareas pendientes, puedes dejarlo como "En Proceso"
+        $this->estado = 'En Proceso';
+    }
+    
+    $this->save();
+}
 }
