@@ -158,11 +158,15 @@
                                     <i class="fas fa-tasks me-1"></i> Tareas
                                 </button>
 
-                                <button class="btn btn-outline-primary btn-sm btn-edit"
-                                   onclick="editarProyecto({{ $proyecto->id }}, this)" 
-                                   title="Editar Proyecto">
-                                   <i class="fas fa-edit"></i>
-                               </button>
+                               
+
+                                @if(str_contains(strtolower($rol), 'admin') || str_contains(strtolower($rol), 'jefe'))
+                                  <button class="btn btn-outline-primary btn-sm btn-edit"
+                                      onclick="editarProyecto({{ $proyecto->id }}, this)" 
+                                      title="Editar Proyecto">
+                                      <i class="fas fa-edit"></i>
+                                   </button>
+                                @endif
                             </td>
                         </tr>
                     @empty
