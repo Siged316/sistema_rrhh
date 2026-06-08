@@ -9,52 +9,32 @@ use Illuminate\Contracts\Queue\ShouldQueue;        // Interfaz que indica que la
 use Illuminate\Notifications\Messages\MailMessage; // Clase utilizada para construir mensajes de correo electrónicos
 use Illuminate\Notifications\Notification;        // Clase base para crear notificaciones personalizadas en Laravel
 
+
 class TareaCorregidaNotification extends Notification
 {
     use Queueable;
 
-    /**
-     * Create a new notification instance.
-     */
-    public function __construct()
+    protected $tarea;
+
+    public function __construct($tarea)
     {
-        //
+        $this->tarea = $tarea;
     }
 
-    /**
-     * Get the notification's delivery channels.
-     *
-     * @return array<int, string>
-     */
-    public function via(object $notifiable): array
+    public function via($notifiable)
     {
-        return ['mail'];
+        // Agregamos 'database' para que aparezca en la campanita
+        // Y 'mail' si quieres que siga enviando el correo
+        return ['database', 'mail'];
     }
 
-    /**
-     * Get the mail representation of the notification.
-     */
-    public function toMail($notifiable)
-{
-    return (new \Illuminate\Notifications\Messages\MailMessage)
-        ->subject('Acción Requerida: Corrección de Tarea')
-        ->greeting('Hola ' . $notifiable->usuario)
-        ->line('El jefe ha solicitado una corrección en la tarea: ' . $this->tarea->titulo)
-        ->line('Observaciones del jefe:')
-        ->line('"' . $this->tarea->observaciones_jefe . '"')
-        ->action('Ver Tarea', url('/proyectos'))
-        ->line('Por favor, realiza los cambios y vuelve a enviar la evidencia.');
-}
-
-    /**
-     * Get the array representation of the notification.
-     *
-     * @return array<string, mixed>
-     */
-    public function toArray(object $notifiable): array
+    public function toArray($notifiable)
     {
+        // Estas claves deben coincidir con lo que tu Blade busca
         return [
-            //
+         'mensaje' => $this->mensaje, // Ej: "Tu tarea X ha sido aprobada"
+         'url' => route('proyectos.index'), // O la ruta específica
+         'tipo' => 'tarea' // Para usar en tu match() del blade
         ];
     }
 }

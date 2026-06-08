@@ -144,5 +144,7 @@ function generarGrafica() {
             Swal.fire('Error', 'No se pudo cargar la gráfica', 'error');
         });
 }
+
+
 </script>
 @endsection

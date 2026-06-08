@@ -354,45 +354,23 @@ Route::middleware(['auth', 'force.password.change'])->group(function () {
     */
 
     // Actualizar progreso
-    Route::patch('/proyectos/{id}/progreso', [ProyectoController::class, 'updateProgress'])
-        ->name('proyectos.progreso');
+  // 1. RUTAS ESTÁTICAS PRIMERO
+Route::get('/proyectos', [ProyectoController::class, 'index'])->name('proyectos.index');
+Route::post('/proyectos', [ProyectoController::class, 'store'])->name('proyectos.store');
+Route::post('/tareas/completar', [ProyectoController::class, 'completarTarea']);
+Route::post('/tareas/enviar-revision', [ProyectoController::class, 'enviarRevision'])->name('tareas.revision');
+Route::post('/tareas/validar-jefe', [ProyectoController::class, 'validarJefe'])->name('tareas.validar');
+Route::post('/tareas/solicitar-correccion', [ProyectoController::class, 'solicitarCorreccion']);
 
-    // Validar proyecto
-    Route::post('/proyectos/{id}/validar', [ProyectoController::class, 'validar'])
-        ->name('proyectos.validar');
+// 2. RUTAS CON PARÁMETROS {id} DESPUÉS
+Route::get('/proyectos/{id}/get-tareas', [ProyectoController::class, 'getTareas']);
+Route::get('/proyectos/{id}/edit', [ProyectoController::class, 'edit'])->name('proyectos.edit');
+Route::patch('/proyectos/{id}/progreso', [ProyectoController::class, 'updateProgress'])->name('proyectos.progreso');
+Route::post('/proyectos/{id}/validar', [ProyectoController::class, 'validar'])->name('proyectos.validar');
 
-    // Guardar proyecto
-    Route::post('/proyectos', [ProyectoController::class, 'store'])
-        ->name('proyectos.store');
 
-    // Listar proyectos
-    Route::get('/proyectos', [ProyectoController::class, 'index'])
-        ->name('proyectos.index');
-
-    // Obtener tareas
-    Route::get('/proyectos/{id}/get-tareas', [ProyectoController::class, 'getTareas']);
-
-    // Completar tarea
-    Route::post('/tareas/completar', [ProyectoController::class, 'completarTarea']);
-
-    // Enviar revisión
-    Route::post('/tareas/enviar-revision', [ProyectoController::class, 'enviarRevision'])
-        ->name('tareas.revision');
-
-    // Validar jefe
-    Route::post('/tareas/validar-jefe', [ProyectoController::class, 'validarJefe'])
-        ->name('tareas.validar');
-
-    // Solicitar corrección
-    Route::post('/tareas/solicitar-correccion', [ProyectoController::class, 'solicitarCorreccion']);
-
-    // Editar proyecto
-    Route::get('/proyectos/{id}/edit', [ProyectoController::class, 'edit'])
-        ->name('proyectos.edit');
-
-    // Actualizar proyecto
-    Route::put('/proyectos/{id}', [ProyectoController::class, 'update'])
-        ->name('proyectos.update');
+// LA RUTA PUT DEBE SER LA ÚLTIMA DE ESTE BLOQUE
+Route::put('/proyectos/{id}', [ProyectoController::class, 'update'])->name('proyectos.update');
 
 
     /*
@@ -568,12 +546,7 @@ Route::prefix('informes/graficas')->group(function () {
         ->name('graficas.data.compensatorio');
 });
 
-// Crea una ruta temporal en web.php
-Route::get('/test-notificacion', function() {
-    $jefe = \App\Models\User::find(TU_ID_DE_JEFE); // Pon tu ID aquí
-    $jefe->notify(new \App\Notifications\NuevaSolicitud(\App\Models\Empleado::first(), 1));
-    return "Notificación enviada a la BD";
-});
+
 
 Route::get('/test-notificacion-horas', function() {
     // 1. Tomamos una solicitud real

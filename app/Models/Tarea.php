@@ -20,7 +20,8 @@ class Tarea extends Model
         'fecha_entrega', 
         'estado',                
         'archivo_evidencia',      
-        'observaciones_empleado'  
+        'observaciones_empleado',
+        'observaciones_jefe'
     ];
 
     /**
@@ -65,4 +66,6 @@ class Tarea extends Model
       // Una tarea tiene muchas observaciones en el historial
       return $this->hasMany(HistorialObservacion::class, 'tarea_id')->orderBy('created_at', 'ASC');
     }
+
+
 }

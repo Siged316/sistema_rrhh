@@ -16,6 +16,7 @@ use App\Exports\ExportarDesempenoDepto; // Exportación Excel de desempeño por 
 use App\Exports\IndividualExport; // Exportación Excel de reportes individuales
 use App\Exports\CompensatorioExport; // Exportación Excel de compensatorios
 use App\Exports\PermisosExport; // Exportación Excel de permisos y vacaciones
+use Illuminate\Support\Facades\Log;
 
 use Maatwebsite\Excel\Facades\Excel; // Facade para generar y descargar archivos Excel
 
@@ -38,16 +39,20 @@ class ReporteController extends Controller
 
     // --- SECCIÓN Desempeño por depto. ---
   public function generarPdf(Request $request) {
-    $depto_id = $request->departamento_id;
-    $anio = $request->anio;
-    $periodo = $request->periodo;
-    $mes = $request->mes;
-    $departamento = Departamento::find($depto_id);
+   
+       // 1. Ver qué campos llegan
+       $campos = $request->all();
 
-    // --- NUEVO: Obtener la firma activa ---
-    $firma = DB::table('firmas')->where('activo', 1)->first();
+       $depto_id = $request->departamento_id;
+       $anio = $request->anio;
+       $periodo = $request->periodo;
+       $mes = $request->mes;
+       $departamento = Departamento::find($depto_id);
 
-    $query = DB::table('asignacion_evaluaciones as ae')
+       // --- NUEVO: Obtener la firma activa ---
+       $firma = DB::table('firmas')->where('activo', 1)->first();
+
+       $query = DB::table('asignacion_evaluaciones as ae')
         ->join('empleados as e', 'ae.empleado_id', '=', 'e.id') 
         ->leftJoin('proyectos as p', 'ae.proyecto_id', '=', 'p.id')
         ->select(
@@ -59,20 +64,131 @@ class ReporteController extends Controller
         ->whereYear('ae.created_at', $anio)
         ->groupBy('actividad');
 
-    if ($periodo == 'mensual' && $mes) {
-        $query->whereMonth('ae.created_at', $mes);
-        $periodo_texto = "Mensual (" . $mes . ")";
-    } else {
-        $periodo_texto = "Anual Acumulado";
+        if ($periodo == 'mensual' && $mes) {
+         $query->whereMonth('ae.created_at', $mes);
+         $periodo_texto = "Mensual (" . $mes . ")";
+        } else {
+          $periodo_texto = "Anual Acumulado";
+        }
+
+        $datos = $query->get();
+        $promedio_depto = $datos->avg('resultado');
+
+       // ===============================
+      // GRÁFICA 3D DINÁMICA - IHCI
+     // ===============================
+
+      $width = 900;
+      $height = 450;
+      $image = imagecreatetruecolor($width, $height);
+
+      // Definición de colores
+      $bg = imagecolorallocate($image, 240, 240, 242); 
+      $text_main = imagecolorallocate($image, 33, 37, 41);
+      $grid_color = imagecolorallocate($image, 215, 215, 218);
+      $accent_red = imagecolorallocate($image, 201, 28, 48);
+
+      imagefilledrectangle($image, 0, 0, $width, $height, $bg);
+
+      // Fuente (Asegúrate de que esta ruta sea accesible por PHP)
+      $fontPath = 'C:/Windows/Fonts/arial.ttf';
+
+      // Título
+      $titulo = "RESULTADOS DE GESTIÓN: PROYECTOS / ACTIVIDADES";
+      $fontSize = 12;
+      $bbox = imagettfbbox($fontSize, 0, $fontPath, $titulo);
+      $tituloWidth = $bbox[2] - $bbox[0];
+      $xTitulo = ($width - $tituloWidth) / 2;
+      imagettftext($image, $fontSize, 0, $xTitulo, 45, $text_main, $fontPath, $titulo);
+      
+
+      // Grid y límites
+      $left = 70; $bottom = 380; $top = 80; $right = 850;
+      $depth = 12;
+
+      for ($i = 0; $i <= 5; $i++) {
+          $y = $bottom - ($i * (($bottom - $top) / 5));
+          imageline($image, $left, $y, $right, $y, $grid_color);
+          imagettftext($image, 10, 0, 25, $y + 5, $text_main, $fontPath, ($i * 20) . '%');
+        }
+
+        // --- ETIQUETAS DE EJES (FUERA DEL BUCLE) ---
+        imagettftext($image, 12, 90, 20, ($bottom + $top) / 2 + 50, $text_main, $fontPath, "Porcentaje (%)");
+
+        $labelX = "Proyectos / Actividades";
+        $bboxX = imagettfbbox(12, 0, $fontPath, $labelX);
+        $xPos = ($right + $left - ($bboxX[2] - $bboxX[0])) / 2;
+        imagettftext($image, 12, 0, $xPos, $bottom + 50, $text_main, $fontPath, $labelX);
+
+        // Paleta de colores
+        $paleta = [
+          ['f' => [55, 98, 148], 't' => [80, 130, 190], 's' => [40, 70, 110]], // Azul
+          ['f' => [201, 28, 48], 't' => [230, 60, 80], 's' => [150, 10, 20]], // Rojo
+          ['f' => [34, 139, 34], 't' => [60, 179, 113], 's' => [20, 100, 20]], // Verde
+          ['f' => [255, 140, 0], 't' => [255, 170, 40], 's' => [200, 100, 0]]  // Naranja
+        ];
+
+        // Cálculo de espaciado
+        $total = count($datos);
+        $spacing = ($right - $left) / ($total + 1);
+        $barWidth = min(50, $spacing * 0.5); 
+        $x = $left + ($spacing / 2);
+
+        // Bucle principal
+       foreach ($datos as $index => $d) {
+          $valor = min(100, round($d->resultado, 2));
+          $barHeight = ($valor == 0) ? 0 : max(15, ($valor / 100) * ($bottom - $top));
+           $y1 = $bottom - $barHeight;
+
+           $col = $paleta[$index % count($paleta)];
+           $bar_color = imagecolorallocate($image, $col['f'][0], $col['f'][1], $col['f'][2]);
+           $bar_top   = imagecolorallocate($image, $col['t'][0], $col['t'][1], $col['t'][2]);
+           $bar_side  = imagecolorallocate($image, $col['s'][0], $col['s'][1], $col['s'][2]);
+
+           // Dibujar 3D
+            if ($valor > 0) {
+              imagefilledpolygon($image, [$x + $barWidth, $y1, $x + $barWidth + $depth, $y1 - $depth, $x + $barWidth + $depth, $bottom - $depth, $x + $barWidth, $bottom], 4, $bar_side);
+              imagefilledpolygon($image, [$x, $y1, $x + $depth, $y1 - $depth, $x + $barWidth + $depth, $y1 - $depth, $x + $barWidth, $y1], 4, $bar_top);
+              imagefilledrectangle($image, $x, $y1, $x + $barWidth, $bottom, $bar_color);
+            }
+
+          // Porcentaje sobre barra
+           $valText = $valor . '%';
+           $textY = ($valor > 0) ? ($y1 - $depth - 5) : ($bottom - 20);
+           imagettftext($image, 10, 0, $x + ($barWidth/2) - 15, $textY, $text_main, $fontPath, $valText);
+
+          // Etiqueta de actividad (abajo)
+          $texto = strlen($d->actividad) > 10 ? substr($d->actividad, 0, 8) . '...' : $d->actividad;
+          imagettftext($image, 10, 0, $x, $bottom + 25, $text_main, $fontPath, $texto);
+
+         $x += $spacing;
+        }
+
+       // Salida
+
+      ob_start();
+      imagepng($image);
+      $imageData = ob_get_clean();
+      $graficaBase64 = 'data:image/png;base64,' . base64_encode($imageData);
+      imagedestroy($image);
+      $pdf = Pdf::loadView('informes.pdf_desempeno', compact('datos', 'departamento', 'anio', 'periodo_texto', 'promedio_depto', 'firma',   'graficaBase64'));
+      return $pdf->stream("Reporte_Desempeño_{$departamento->nombre}.pdf");
     }
 
-    $datos = $query->get();
-    $promedio_depto = $datos->avg('resultado');
-
-    // --- AGREGAR 'firma' al compact ---
-    $pdf = Pdf::loadView('informes.pdf_desempeno', compact('datos', 'departamento', 'anio', 'periodo_texto', 'promedio_depto', 'firma'));
-    return $pdf->stream("Reporte_Desempeño_{$departamento->nombre}.pdf");
-  }
+    public function descargarFuente() {
+    $url = 'https://github.com/google/fonts/raw/main/apache/roboto/Roboto-Bold.ttf';
+    $path = public_path('fonts/Roboto-Bold.ttf');
+    
+    // Descarga el contenido del archivo
+    $fileContent = file_get_contents($url);
+    
+    // Guarda el archivo
+    if (file_put_contents($path, $fileContent)) {
+        return "¡Fuente descargada exitosamente en: " . $path;
+    } else {
+        return "Error al descargar la fuente. Verifica permisos de escritura.";
+    }
+}
 
    public function generarExcel(Request $request) {
     $depto_id = $request->departamento_id;
