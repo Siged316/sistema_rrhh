@@ -18,7 +18,8 @@
         position: relative;
         height: 500px;
         width: 100%;
-        background-color: #141820 !important;
+        background-color: #dde1e9 !important;
+        box-shadow: 10px 10px 20px rgba(242, 236, 236, 0.2);
         border-radius: 15px;
         padding: 30px;
         border: 1px solid #d1d3e2;
@@ -127,6 +128,7 @@
      SCRIPT DE FUNCIONALIDAD JAVASCRIPT
 ========================================================== --}}
 <script>
+  
     let miGraficaCompensatorio = null;
     
     // Registrar el plugin de las etiquetas sobre las barras
@@ -264,73 +266,82 @@
 
         const url = `{{ route('graficas.data.compensatorio') }}?empleado_id=${emp}&anio=${anio}&periodo=${periodo}&mes=${mes}`;
 
-        fetch(url)
-            .then(response => response.json())
-            .then(data => {
-                Swal.close();
-                limpiarGrafica();
+      fetch(url)
+      .then(response => response.json())
+      .then(data => {
+          Swal.close();
+          limpiarGrafica();
 
-                if (data.ganadas === 0 && data.usadas === 0) {
-                    Swal.fire('Sin registros', 'No se encontraron movimientos de tiempo compensatorio para los filtros seleccionados.', 'info');
-                    return;
-                }
+           if (data.ganadas === 0 && data.usadas === 0) {
+              Swal.fire('Sin registros', 'No se encontraron movimientos.', 'info');
+              return;
+            }
 
-                const ctx = document.getElementById('canvasCompensatorio').getContext('2d');
+           const ctx = document.getElementById('canvasCompensatorio').getContext('2d');
 
-                // Renderizado de barras dobles verticales comparativas
-                miGraficaCompensatorio = new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: ['Balance de Horas'],
-                        datasets: [
-                            {
-                                label: 'Horas Extras Ganadas',
-                                data: [data.ganadas],
-                                backgroundColor: '#4e73df', // Azul institucional
-                                borderRadius: 5
-                            },
-                            {
-                                label: 'Horas Compensadas (Usadas)',
-                                data: [data.usadas],
-                                backgroundColor: '#e74a3b', // Rojo alerta
-                                borderRadius: 5
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                grid: { color: 'rgba(255,255,255,0.1)' },
-                                ticks: { color: '#ffffff', font: { weight: 'bold' } }
-                            },
-                            x: {
-                                ticks: { color: '#ffffff', font: { size: 14, weight: 'bold' } }
-                            }
+           miGraficaCompensatorio = new Chart(ctx, {
+              type: 'bar',
+               data: {
+                  labels: ['Balance de Horas'],
+                  datasets: [
+                       {
+                         label: 'Horas Extras Ganadas',
+                         data: [data.ganadas],
+                         backgroundColor: '#4e73df',
+                          borderColor: '#2e59d9',
+                          borderWidth: 2,
+                          borderRadius: 6
                         },
-                        plugins: {
-                            legend: {
-                                labels: { color: '#ffffff', font: { weight: 'bold' } }
-                            },
-                            datalabels: {
-                                color: '#ffffff',
-                                anchor: 'end',
-                                align: 'top',
-                                offset: 5,
-                                font: { weight: 'bold', size: 13 },
-                                formatter: (value) => value + ' hrs'
-                            }
+                        {
+                         label: 'Horas Compensadas (Usadas)',
+                         data: [data.usadas],
+                         backgroundColor: '#e74a3b',
+                         borderColor: '#be3a2e',
+                         borderWidth: 2,
+                         borderRadius: 6
+                        }
+                    ]
+                },
+                options: {
+                 responsive: true,
+                 maintainAspectRatio: false,
+                  // Esto es fundamental para que el plugin se procese correctamente
+                  plugins: {
+                     legend: {
+                         position: 'top',
+                         labels: { color: '#000000', font: { weight: 'bold' } }
+                        },
+                      datalabels: {
+                          display: true, 
+                          color: '#000000',
+                          anchor: 'end',
+                          align: 'top',
+                          offset: 4,
+                          font: { weight: 'bold', size: 14 },
+                          formatter: (value) => value + ' hrs'
+                        }
+                    },
+                   scales: {
+                      y: {
+                         beginAtZero: true,
+                         // Damos espacio extra arriba para que la etiqueta no se corte
+                         grace: '15%', 
+                         ticks: { color: '#000000', font: { weight: 'bold' } }
+                        },
+                       x: {
+                          ticks: { color: '#000000', font: { weight: 'bold' } }
                         }
                     }
-                });
-            })
-            .catch(error => {
-                Swal.close();
-                console.error(error);
-                Swal.fire('Error', 'No se pudieron recuperar las estadísticas contables.', 'error');
-            });
+                },
+               // Registramos el plugin específicamente para esta instancia
+               plugins: [ChartDataLabels]
+           });
+        })
+        .catch(error => {
+          Swal.close();
+          console.error("Error:", error);
+         Swal.fire('Error', 'No se pudo generar la gráfica.', 'error');
+        });
     }
 </script>
 @endsection
