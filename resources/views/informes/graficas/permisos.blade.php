@@ -15,7 +15,7 @@
         position: relative;
         height: 500px;
         width: 100%;
-        background-color: #141820 !important;
+        background-color: #eff1f6 !important;
         border-radius: 15px;
         padding: 30px;
         border: 1px solid #d1d3e2;
@@ -228,54 +228,62 @@
                         }]
                     },
                     options: {
-                        indexAxis: 'y',
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        layout: {
-                            // Dejamos suficiente espacio para que la etiqueta quepa completa
-                            padding: {
-                                right: 110 
-                            }
+                       indexAxis: 'y',
+                       responsive: true,
+                       maintainAspectRatio: false,
+                       layout: {
+                          padding: { right: 110 }
                         },
-                        scales: {
-                            y: {
-                                grid: { display: false },
-                                ticks: { color: '#ffffff', font: { size: 12, weight: 'bold' } }
+                       scales: {
+                         y: {
+                             grid: { display: false },
+                             // Cambiado a negro
+                             ticks: { color: '#000000', font: { size: 12, weight: 'bold' } }
                             },
-                            x: {
-                                beginAtZero: true,
-                                grid: { color: 'rgba(255,255,255,0.1)' },
-                                ticks: {
-                                    color: '#ffffff',
-                                    font: { weight: 'bold' },
-                                    callback: function(value) { return value + ' hrs'; }
+                          x: {
+                              beginAtZero: true,
+                               // Cambiado a gris oscuro para la línea de rejilla, negro para el texto
+                               grid: { color: 'rgba(0,0,0,0.1)' },
+                               title: {
+                                 display: true,
+                                 text: 'Horas', // <--- ESTA ES LA ETIQUETA QUE PIDES
+                                 color: '#000000',
+                                 font: { size: 14, weight: 'bold' }
+                                },
+                               ticks: {
+                                  color: '#000000',
+                                   font: { weight: 'bold' },
+                                 callback: function(value) { return value + ' hrs'; }
                                 }
+
+           
                             }
+
                         },
-                        plugins: {
-                            legend: { display: false },
-                            datalabels: {
-                                color: '#ffffff',
-                                anchor: 'end',
-                                align: 'right',
-                                offset: 10,
-                                display: true, // Forzar visualización de la etiqueta externa
-                                font: { weight: 'bold', size: 12 },
-                                formatter: (value, context) => {
-                                    const index = context.dataIndex;
-                                    // Retorna el string formateado desde PHP: "4 días (86.5%)"
-                                    return data.etiquetas[index]; 
+                       plugins: {
+                          legend: { display: false },
+                          datalabels: {
+                              // Cambiado a negro
+                             color: '#000000', 
+                             anchor: 'end',
+                             align: 'right',
+                             offset: 10,
+                              display: true,
+                              font: { weight: 'bold', size: 12 },
+                              formatter: (value, context) => {
+                                  const index = context.dataIndex;
+                                  return data.etiquetas[index]; 
                                 }
-                            }
+                           }
                         }
                     }
                 });
             })
-            .catch(error => {
-                Swal.close();
-                console.error(error);
-                Swal.fire('Error', 'No se pudieron procesar las estadísticas.', 'error');
-            });
+        .catch(error => {
+            Swal.close();
+            console.error(error);
+            Swal.fire('Error', 'No se pudieron procesar las estadísticas.', 'error');
+       });
     }
 </script>
 @endsection
