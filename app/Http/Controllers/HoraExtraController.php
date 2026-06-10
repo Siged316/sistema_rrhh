@@ -419,149 +419,204 @@ private function sumarHorasReloj($arreglo) {
     }
 
     // Gestión de las horas
- public function gestion(Request $request)
-    {
-     $user = auth()->user();
-     $empleadoLogueado = $user->empleado;
+   public function gestion(Request $request)
+   {
+      $user = auth()->user();
+      $empleadoLogueado = $user->empleado;
 
-     // 1. ROLES Y PERMISOS
-     $rol = trim($user->rol->nombre ?? '');
+      // 1. ROLES Y PERMISOS
+      $rol = trim($user->rol->nombre ?? '');
 
-     $rolNormalizado = Str::of($rol)
-       ->ascii()
-       ->lower()
-       ->squish()
-       ->toString();
+      $rolNormalizado = Str::of($rol)
+      ->ascii()
+      ->lower()
+      ->squish()
+      ->toString();
 
        $esAdmin = $rolNormalizado === 'administrador' || $user->hasRole('Administrador');
 
-      $esGTH = in_array($rol, ['GTH', 'Gestión de Talento Humano']);
+       $esGTH = in_array($rol, ['GTH', 'Gestión de Talento Humano']);
 
-        $esDireccion = in_array($rolNormalizado, ['direccion', 'direccion ejecutiva'], true)
+       $esDireccion = in_array($rolNormalizado, ['direccion', 'direccion ejecutiva'], true)
        || $user->hasRole('Dirección')
        || $user->hasRole('Direccion')
        || $user->hasRole('Dirección Ejecutiva')
        || $user->hasRole('Direccion Ejecutiva');
 
-      $esAdminOGTH = $esAdmin || $esGTH || $esDireccion;
+       $esAdminOGTH = $esAdmin || $esGTH || $esDireccion;
 
-     $departamentoQueDirige = \App\Models\Departamento::where('jefe_empleado_id', $empleadoLogueado->id)->first();
-     $esJefe = !is_null($departamentoQueDirige);
+       $departamentoQueDirige = \App\Models\Departamento::where(
+          'jefe_empleado_id',
+           $empleadoLogueado->id
+        )->first();
 
-     // 2. DETERMINAR ALCANCE DE DEPARTAMENTOS (Para el JS)
-     // Moví esto arriba para que siempre tenga datos
-     $queryDepto = \App\Models\Departamento::with(['empleados' => function($q) {
-         $q->orderBy('nombre');
-      }]);
+       $esJefe = !is_null($departamentoQueDirige);
 
-     if ($esAdminOGTH) {
+       // 2. DETERMINAR ALCANCE DE DEPARTAMENTOS
+       $queryDepto = \App\Models\Departamento::with([
+         'empleados' => function ($q) {
+              $q->orderBy('nombre');
+            }
+        ]);
+
+      if ($esAdminOGTH) {
           $departamentos = $queryDepto->orderBy('nombre')->get();
         } elseif ($esJefe) {
-          $departamentos = $queryDepto->where('id', $departamentoQueDirige->id)->get();
+            $departamentos = $queryDepto
+           ->where('id', $departamentoQueDirige->id)
+           ->get();
         } else {
           $departamentos = collect();
         }
 
-      // Limpiamos los índices para que JS reciba un Array puro []
-      $departamentos = $departamentos->map(function($depto) {
-          $depto->setRelation('empleados', $depto->empleados->values());
-          return $depto;
-        });
+       $departamentos = $departamentos->map(function ($depto) {
+         $depto->setRelation('empleados', $depto->empleados->values());
+         return $depto;
+       });
 
-      // 3. FILTRO DE BÚSQUEDA
-      $empleadoId = $request->input('empleado_id');
-      $esBusquedaActiva = !empty($empleadoId);
+       // 3. FILTRO DE BÚSQUEDA
+       $empleadoId = $request->input('empleado_id');
+       $esBusquedaActiva = !empty($empleadoId);
 
-      // 4. ASIGNAR EMPLEADO PARA CÁLCULOS
-      if ($esAdminOGTH) {
-          $empleadoAConsultar = $esBusquedaActiva ? \App\Models\Empleado::find($empleadoId) : $empleadoLogueado;
-        } elseif ($esJefe) {
-         $esDeSuEquipo = \App\Models\Empleado::where('id', $empleadoId)
-            ->where('departamento_id', $departamentoQueDirige->id)->exists();
-          $empleadoAConsultar = ($esBusquedaActiva && $esDeSuEquipo) ? \App\Models\Empleado::find($empleadoId) : $empleadoLogueado;
-        } else {
-          $empleadoAConsultar = $empleadoLogueado;
+       // 4. EMPLEADO A CONSULTAR
+       $empleadoAConsultar = null;
+
+       if ($esBusquedaActiva) {
+
+          if ($esAdminOGTH) {
+               $empleadoAConsultar = \App\Models\Empleado::find($empleadoId);
+
+            } elseif ($esJefe) {
+
+              $esDeSuEquipo = \App\Models\Empleado::where('id', $empleadoId)
+              ->where('departamento_id', $departamentoQueDirige->id)
+              ->exists();
+
+              if ($esDeSuEquipo) {
+                  $empleadoAConsultar = \App\Models\Empleado::find($empleadoId);
+                }
+            }
         }
 
        // 5. CÁLCULOS DE SALDOS
-       $totalAcumuladas = 0; $totalPagadas = 0; $totalConsumidas = 0; $totalPendientesSolicitud = 0;
-    
-       if ($empleadoAConsultar) {
-          // 1. Horas acumuladas (Ganadas) aprobadas
-          $totalAcumuladas = \App\Models\HoraExtra::where('empleado_id', $empleadoAConsultar->id)
-          ->where('estado', 'aprobado')
-          ->sum('horas_acumuladas');
+       $totalAcumuladas = 0;
+        $totalPagadas = 0;
+       $totalConsumidas = 0;
+       $totalPendientesSolicitud = 0;
 
-          // 2. Horas pagadas aprobadas
+        $historialAcumuladas = collect();
+        $historialPagadas = collect();
+        $historialConsumidas = collect();
+        $solicitudesPendientes = collect();
+
+        if ($empleadoAConsultar) {
+
+           $correoEmpleado = $empleadoAConsultar->correo ?? $empleadoAConsultar->email;
+
+           $totalAcumuladas = \App\Models\HoraExtra::where('empleado_id', $empleadoAConsultar->id)
+           ->where('estado', 'aprobado')
+           ->sum('horas_acumuladas');
+
           $totalPagadas = \App\Models\HoraExtra::where('empleado_id', $empleadoAConsultar->id)
           ->where('estado', 'aprobado')
           ->sum('horas_pagadas');
 
-          // 3. HORAS CONSUMIDAS (Pasando los días a horas [dias * 8] + las horas directas)
-         // Filtramos estrictamente por el correo del empleado, estado aprobado y tipo correcto
-          $solicitudesAprobadas = \App\Models\Solicitud::where('correo', $empleadoAConsultar->correo ?? $empleadoAConsultar->email)
+           $solicitudesAprobadas = \App\Models\Solicitud::where('correo', $correoEmpleado)
            ->where('tipo', 'A CUENTA DE TIEMPO COMPENSATORIO')
            ->where('estado', 'aprobado')
            ->get();
 
            foreach ($solicitudesAprobadas as $solicitud) {
-              // Si el registro guardó días (ej: 2 días), lo multiplicamos por 8 horas laborales
-              $horasDesdeDias = ((float)$solicitud->dias) * 8.0; 
-        
-              // Sumamos tanto las horas calculadas por días como las horas que se hayan metido directamente
-              $totalConsumidas += $horasDesdeDias + ((float)$solicitud->horas);
+             $totalConsumidas += ((float) $solicitud->dias * 8.0)
+               + (float) $solicitud->horas;
             }
 
-           // 4. HORAS PENDIENTES (Por si quieres mostrar lo que está en proceso con la misma lógica)
-           $solicitudesPendientes = \App\Models\Solicitud::where('correo', $empleadoAConsultar->correo ?? $empleadoAConsultar->email)
+           $solicitudesPendientes = \App\Models\Solicitud::where('correo', $correoEmpleado)
            ->where('tipo', 'A CUENTA DE TIEMPO COMPENSATORIO')
            ->whereIn('estado', ['pendiente', 'en proceso'])
            ->get();
 
-          foreach ($solicitudesPendientes as $solicitud) {
-              $totalPendientesSolicitud += (((float)$solicitud->dias) * 8.0) + ((float)$solicitud->horas);
+           foreach ($solicitudesPendientes as $solicitud) {
+              $totalPendientesSolicitud += ((float) $solicitud->dias * 8.0)
+              + (float) $solicitud->horas;
             }
-        }
-    
-      $saldoRestante = $totalAcumuladas - $totalConsumidas;
 
-      // 6. TABLA DE REGISTROS (Historial)
-      $queryRegistros = \App\Models\HoraExtra::with(['empleado', 'detalles']);
+           $historialAcumuladas = \App\Models\HoraExtra::with('detalles')
+           ->where('empleado_id', $empleadoAConsultar->id)
+           ->where('estado', 'aprobado')
+           ->get();
 
-       // Filtro integrado
-      if ($request->filled('buscar')) {
-          $queryRegistros->where('nombre', 'LIKE', '%' . $request->buscar . '%');
+           $historialPagadas = \App\Models\HoraExtra::where('empleado_id', $empleadoAConsultar->id)
+           ->where('estado', 'aprobado')
+           ->where('horas_pagadas', '>', 0)
+           ->get();
+
+           $historialConsumidas = \App\Models\Solicitud::where('correo', $correoEmpleado)
+           ->where('tipo', 'A CUENTA DE TIEMPO COMPENSATORIO')
+           ->where('estado', 'aprobado')
+           ->get();
         }
-    
+
+       $saldoRestante = $totalAcumuladas - $totalConsumidas;
+
+       // 6. TABLA DE REGISTROS
+       $queryRegistros = \App\Models\HoraExtra::with(['empleado', 'detalles']);
+
+       if ($request->filled('buscar')) {
+          $searchTerm = $request->buscar;
+
+          $queryRegistros->whereHas('empleado', function ($subQ) use ($searchTerm) {
+              $subQ->where('nombre', 'LIKE', "%{$searchTerm}%")
+              ->orWhere('apellido', 'LIKE', "%{$searchTerm}%");
+           });
+        }
+
        if (!$esAdminOGTH) {
            if ($esJefe) {
-              $queryRegistros->whereHas('empleado', function($q) use ($departamentoQueDirige, $empleadoLogueado) {
-                  $q->where('departamento_id', $departamentoQueDirige->id)->orWhere('id', $empleadoLogueado->id);
-               });
+
+               $queryRegistros->whereHas(
+                  'empleado',
+                  function ($q) use ($departamentoQueDirige, $empleadoLogueado) {
+                      $q->where('departamento_id', $departamentoQueDirige->id)
+                      ->orWhere('id', $empleadoLogueado->id);
+                    }
+                );
+
             } else {
-               $queryRegistros->where('empleado_id', $empleadoLogueado->id);
+
+              $queryRegistros->where('empleado_id', $empleadoLogueado->id);
             }
         }
-    
-       $solicitudes = $queryRegistros->orderByRaw("CASE 
-                WHEN estado = 'pendiente' THEN 1
-                WHEN estado = 'proceso' THEN 1
-                WHEN estado = 'aprobado' THEN 2
-                WHEN estado = 'rechazado' THEN 2
-                ELSE 3 
-            END ASC")
-            ->orderBy('created_at', 'desc') // Sub-ordenamiento: Las más nuevas de cada grupo primero
-            ->paginate(5);
 
-        $pasosConfigurados = \DB::table('flujo_firmas_config')->where('activo', 1)->orderBy('id', 'asc')->get();
-        
-        return view('horas_extras.gestion', compact(
-         'solicitudes', 'pasosConfigurados', 'totalAcumuladas', 'totalPagadas', 
-         'totalConsumidas', 'totalPendientesSolicitud', 'saldoRestante', 
-         'esAdmin', 'esGTH', 'esJefe', 'esDireccion', 'departamentos', 'empleadoAConsultar', 'esBusquedaActiva'
-      
-         ));
+       $solicitudes = $queryRegistros
+       ->orderByRaw("
+          CASE
+              WHEN estado = 'pendiente' THEN 1
+              WHEN estado = 'proceso' THEN 1
+              WHEN estado = 'aprobado' THEN 2
+              WHEN estado = 'rechazado' THEN 2
+              ELSE 3
+            END ASC
+       ")
+       ->orderBy('created_at', 'desc')
+       ->paginate(5)
+       ->withQueryString();
+
+       $pasosConfigurados = \DB::table('flujo_firmas_config')
+      ->where('activo', 1)
+      ->orderBy('id', 'asc')
+      ->get();
+
+
+      return view('horas_extras.gestion', compact(
+          'solicitudes','pasosConfigurados', 'totalAcumuladas', 'totalPagadas','totalConsumidas',
+          'totalPendientesSolicitud','saldoRestante', 'esAdmin','esGTH','esJefe','esDireccion',
+         'departamentos','empleadoAConsultar','esBusquedaActiva','historialAcumuladas','historialConsumidas',
+         'historialPagadas', 'solicitudesPendientes'
+       ));
+
     }
+
 
     /*
     |--------------------------------------------------------------------------

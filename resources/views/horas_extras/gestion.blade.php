@@ -1,5 +1,17 @@
 @extends('layouts.app')
-
+<style>
+    /* Aseguramos que el modal esté por encima de todo */
+    .modal {
+        z-index: 9999 !important;
+    }
+    .modal-backdrop {
+        z-index: 9998 !important;
+    }
+    /* Esto evita que algo interno oculte el modal */
+    body.modal-open {
+        overflow: auto !important; 
+    }
+</style>
 
 @section('content')
 
@@ -46,12 +58,12 @@
 
   {{-- BUSCADOR PARA ADMIN, GTH, DIRECCIÓN Y JEFES --}}
   @if($esAdmin || $esGTH || $esDireccion || $esJefe)
-    <div class="card border-0 shadow-sm mb-4">
+   <div class="card border-0 shadow-sm mb-4">
         <div class="card-header bg-primary text-white fw-bold">
             <i class="fas fa-search me-2"></i> CONSULTAR SALDOS POR COLABORADOR
         </div>
         <div class="card-body bg-light">
-            <form action="{{ url()->current() }}" method="GET" id="formConsulta">
+            <form action="{{ url()->current() }}" method="GET" id="formConsulta" autocomplete="off">
                 <div class="row g-3">
                     <div class="col-md-4">
                         <label class="form-label small fw-bold text-uppercase">1. Departamento</label>
@@ -94,51 +106,64 @@
         </div>
     @endif
 
-    {{-- INDICADORES --}}
-    <div class="row g-3 mb-4">
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm bg-dark text-white h-100">
-                <div class="card-body text-center d-flex flex-column justify-content-center">
-                    <small class="text-uppercase fw-bold text-info mb-1">Acumuladas</small>
-                    <h3 class="fw-bold mb-0 text-info">{{ number_format($totalAcumuladas, 2) }} h</h3>
-                </div>
-                <div style="height: 5px; background-color: #0dcaf0; border-radius: 0 0 5px 5px;"></div>
+   {{-- INDICADORES --}}
+   @if($empleadoAConsultar)
+<div class="row g-3 mb-4">
+    {{-- TARJETA ACUMULADAS --}}
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm bg-dark text-white h-100" 
+             role="button" data-bs-toggle="modal" data-bs-target="#modalAcumuladas" style="cursor: pointer;">
+            <div class="card-body text-center d-flex flex-column justify-content-center">
+                <small class="text-uppercase fw-bold text-info mb-1">Acumuladas</small>
+                <h3 class="fw-bold mb-0 text-info">{{ number_format($totalAcumuladas, 2) }} h</h3>
             </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm bg-secondary text-white h-100 opacity-75">
-                <div class="card-body text-center d-flex flex-column justify-content-center">
-                    <small class="text-uppercase fw-bold text-light mb-1">Pagadas </small>
-                    <h3 class="fw-bold mb-0 text-light">{{ number_format($totalPagadas, 2) }} h</h3>
-                </div>
-                <div style="height: 5px; background-color: #adb5bd; border-radius: 0 0 5px 5px;"></div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm bg-dark text-white h-100">
-                <div class="card-body text-center d-flex flex-column justify-content-center">
-                    <small class="text-uppercase fw-bold text-warning mb-1">Consumidas</small>
-                    <h3 class="fw-bold mb-0 text-warning">{{ number_format($totalConsumidas, 2) }} h</h3>
-                </div>
-                <div style="height: 5px; background-color: #ffc107; border-radius: 0 0 5px 5px;"></div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card border-0 shadow-sm bg-dark text-white h-100">
-                <div class="card-body text-center d-flex flex-column justify-content-center">
-                    <small class="text-uppercase fw-bold text-danger mb-1">Saldo de Tiempo</small>
-                    <h3 class="fw-bold mb-0 text-danger">{{ number_format($saldoRestante, 2) }} h</h3>
-                </div>
-                <div style="height: 5px; background-color: #dc3545; border-radius: 0 0 5px 5px;"></div>
-            </div>
+            <div style="height: 5px; background-color: #0dcaf0; border-radius: 0 0 5px 5px;"></div>
         </div>
     </div>
+
+    {{-- TARJETA PAGADAS --}}
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm bg-secondary text-white h-100 opacity-75" 
+             role="button" data-bs-toggle="modal" data-bs-target="#modalPagadas" style="cursor: pointer;">
+            <div class="card-body text-center d-flex flex-column justify-content-center">
+                <small class="text-uppercase fw-bold text-light mb-1">Pagadas</small>
+                <h3 class="fw-bold mb-0 text-light">{{ number_format($totalPagadas, 2) }} h</h3>
+            </div>
+            <div style="height: 5px; background-color: #adb5bd; border-radius: 0 0 5px 5px;"></div>
+        </div>
+    </div>
+
+    {{-- TARJETA CONSUMIDAS --}}
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm bg-dark text-white h-100" 
+             role="button" data-bs-toggle="modal" data-bs-target="#modalConsumidas" style="cursor: pointer;">
+            <div class="card-body text-center d-flex flex-column justify-content-center">
+                <small class="text-uppercase fw-bold text-warning mb-1">Consumidas</small>
+                <h3 class="fw-bold mb-0 text-warning">{{ number_format($totalConsumidas, 2) }} h</h3>
+            </div>
+            <div style="height: 5px; background-color: #ffc107; border-radius: 0 0 5px 5px;"></div>
+        </div>
+    </div>
+
+    {{-- TARJETA SALDO DE TIEMPO --}}
+    <div class="col-md-3">
+        <div class="card border-0 shadow-sm bg-dark text-white h-100" 
+             role="button" data-bs-toggle="modal" data-bs-target="#modalPendientes" style="cursor: pointer;">
+            <div class="card-body text-center d-flex flex-column justify-content-center">
+                <small class="text-uppercase fw-bold text-danger mb-1">Saldo de Tiempo</small>
+                <h3 class="fw-bold mb-0 text-danger">{{ number_format($saldoRestante, 2) }} h</h3>
+            </div>
+            <div style="height: 5px; background-color: #dc3545; border-radius: 0 0 5px 5px;"></div>
+        </div>
+    </div>
+</div>
 
     <div class="mb-4 text-end">
         <button class="btn btn-dark btn-sm rounded-pill px-4 shadow-sm fw-bold" data-bs-toggle="modal" data-bs-target="#modalDetalleSaldo">
             <i class="fas fa-list-ul me-2"></i> Ver Desglose
         </button>
     </div>
+@endif
 
     {{-- TABLA --}}
     <div class="card border-0 shadow-sm">
@@ -290,6 +315,7 @@
 </div>
 @endif
 
+
 {{-- Crear Horas extra --}}
 @include('horas_extras.horas')
 
@@ -298,31 +324,36 @@ document.addEventListener('DOMContentLoaded', function() {
     // 1. Auto-cerrar alertas
     document.querySelectorAll('.auto-close').forEach(alert => {
         setTimeout(() => { new bootstrap.Alert(alert).close(); }, 5000);
-    });
+    });  
 
     // 2. Lógica de Selectores Dinámicos
     const deptoSelect = document.getElementById('select_depto');
     const empleadoSelect = document.getElementById('select_empleado');
     const data = @json($departamentos);
     const empleadoSeleccionadoId = "{{ request('empleado_id') }}";
-    const url = new URL(window.location);
+    const urlParams = new URLSearchParams(window.location.search);
     //Ocultar el buscador
     const btnActivar = document.getElementById('btn-activar-busqueda');
     const formBusqueda = document.getElementById('form-busqueda');
 
-    // SI EXISTE empleado_id EN LA URL, procesamos la carga y LUEGO LIMPIAMOS
-    if (url.searchParams.has('empleado_id')) {
-        
-        // 1. Cargamos los empleados para que el usuario vea lo que buscó
-        if (deptoSelect.value && empleadoSeleccionadoId) {
-            cargarEmpleados(deptoSelect.value, empleadoSeleccionadoId);
-        }
+    // Si el usuario recargó y el valor persiste, vuelve a cargar los empleados de inmediato
+if (deptoSelect.value) {
+    cargarEmpleados(deptoSelect.value, "{{ request('empleado_id') }}");
+}
 
-        // 2. MAGIA: Borramos el parámetro de la URL sin recargar la página
-        // Esto hace que si dan F5, la URL ya sea solo /horas-extras/gestion
-        url.searchParams.delete('empleado_id');
-        window.history.replaceState({}, document.title, url.pathname);
+    // SI EXISTE empleado_id EN LA URL, procesamos la carga y LUEGO LIMPIAMOS
+   if (urlParams.has('empleado_id')) {
+    const deptoId = urlParams.get('departamento_id');
+    const empId = urlParams.get('empleado_id');
+
+    // Cargamos los datos
+    if (deptoId && empId) {
+        cargarEmpleados(deptoId, empId);
     }
+    
+    // NOTA: Si no quieres que al recargar (F5) la URL se vea "sucia" con los parámetros,
+    // es preferible dejarlos ahí. Borrarlos es lo que está causando que pierdas el estado.
+}
 
     function cargarEmpleados(deptoId, seleccionarId = null) {
         empleadoSelect.innerHTML = '<option value="">-- Seleccione Colaborador --</option>';
@@ -353,6 +384,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+
     function imprimirReporte() {
     // Esta función abre el diálogo de impresión del navegador
     window.print();
@@ -372,6 +404,177 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
 });
+
+function abrirModalManual() {
+    var myModal = new bootstrap.Modal(document.getElementById('modalAcumuladas'));
+    myModal.show();
+}
+
+//Refrescar pantalla 
+if (window.location.search.length > 0) {
+    window.history.replaceState(
+        {},
+        document.title,
+        window.location.pathname
+    );
+}
 </script>
 
 @endsection
+
+
+{{-- MODAL ACUMULADAS --}}
+<div class="modal fade" id="modalAcumuladas" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title">Detalle de Horas Acumuladas</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <table class="table table-hover">
+                    <thead><tr><th>Fecha de Aprobación</th><th>Observación</th><th>Horas</th></tr></thead>
+                    <tbody>
+                      @foreach($historialAcumuladas as $item)
+                          <tr>
+                              <td>
+                                 {{ $item->fecha_aprobacion ? \Carbon\Carbon::parse($item->fecha_aprobacion)->format('d/m/Y') : 'Sin aprobación' }}
+                               </td>
+                             
+                               <td>
+                                 <div class="row">
+
+                                     {{-- OBSERVACIONES --}}
+                                     <div class="col-md-5 border-end">
+                                         <small class="fw-bold text-muted d-block">Observaciones</small>
+                                           {{ $item->observaciones_jefe ?? 'N/A' }}
+                                       </div>
+
+                                      {{-- ACTIVIDADES --}}
+                                      <div class="col-md-7">
+                                         <small class="fw-bold text-muted d-block">Actividades</small>
+
+                                           @if($item->detalles->count())
+
+                                              @foreach($item->detalles as $detalle)
+
+                                                  @for($i = 1; $i <= 5; $i++)
+                                                       @php
+                                                          $actividad = $detalle->{"actividad$i"};
+                                                          $fecha = $detalle->{"fecha$i"};
+                                                        @endphp
+
+                                                        @if($actividad)
+                                                          <div class="small">
+                                                                •
+                                                              {{ $fecha ? \Carbon\Carbon::parse($fecha)->format('d/m/Y') : 'Sin fecha' }}
+                                                               |
+                                                              {{ $detalle->{"hora_inicio$i"} }} {{ $detalle->{"periodo_inicio$i"} }}
+                                                               -
+                                                              {{ $detalle->{"hora_fin$i"} }} {{ $detalle->{"periodo_fin$i"} }}
+                                                               → {{ $actividad }}
+                                                          </div>
+                                                        @endif
+                                                   @endfor
+
+                                                @endforeach
+
+                                            @else
+                                              <small class="text-muted">Sin actividades</small>
+                                           @endif
+                                       </div>
+
+                                    </div>
+                                </td>
+
+                                <td class="text-end fw-bold">
+                                   +{{ number_format($item->horas_acumuladas, 2) }}
+                               </td>
+                           </tr>
+
+                        @endforeach
+                   </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- MODAL PAGADAS --}}
+<div class="modal fade" id="modalPagadas" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-secondary text-white">
+                <h5 class="modal-title">Detalle de Horas Pagadas</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <table class="table table-hover">
+                    <thead><tr><th>Fecha</th><th>Observación</th><th>Horas</th></tr></thead>
+                    <tbody>
+                        @foreach($historialPagadas as $item)
+                        <tr>
+                            <td>{{ $item->created_at->format('d/m/Y') }}</td>
+                            <td>{{ $item->observaciones_jefe ?? 'N/A' }}</td>
+                            <td class="text-end fw-bold">{{ number_format($item->horas_pagadas, 2) }}</td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- MODAL CONSUMIDAS --}}
+<div class="modal fade" id="modalConsumidas" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title">Detalle de Horas Consumidas</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <table class="table table-hover">
+                    <thead><tr><th>Fecha</th><th>Motivo</th><th>Horas</th></tr></thead>
+                    <tbody>
+                        @foreach($historialConsumidas as $item)
+                        <tr>
+                            <td>{{ $item->created_at->format('d/m/Y') }}</td>
+                            <td>{{ $item->motivo ?? 'Compensatorio' }}</td>
+                            <td class="text-end fw-bold">{{ number_format((($item->dias * 8) + $item->horas), 2) }}</td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- MODAL PENDIENTES --}}
+<div class="modal fade" id="modalPendientes" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">Solicitudes Pendientes</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <table class="table table-hover">
+                    <thead><tr><th>Fecha</th><th>Estado</th><th>Horas</th></tr></thead>
+                    <tbody>
+                        @foreach($solicitudesPendientes as $item)
+                        <tr>
+                            <td>{{ $item->created_at->format('d/m/Y') }}</td>
+                            <td>{{ ucfirst($item->estado) }}</td>
+                            <td class="text-end fw-bold">{{ number_format((($item->dias * 8) + $item->horas), 2) }}</td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
