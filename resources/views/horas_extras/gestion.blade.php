@@ -510,11 +510,11 @@ if (window.location.search.length > 0) {
             </div>
             <div class="modal-body">
                 <table class="table table-hover">
-                    <thead><tr><th>Fecha</th><th>Observación</th><th>Horas</th></tr></thead>
+                    <thead><tr><th>Fecha de Aprobación</th><th>Observación</th><th>Horas</th></tr></thead>
                     <tbody>
                         @foreach($historialPagadas as $item)
                         <tr>
-                            <td>{{ $item->created_at->format('d/m/Y') }}</td>
+                            <td>{{ $item->fecha_aprobacion ? \Carbon\Carbon::parse($item->fecha_aprobacion)->format('d/m/Y') : 'Sin aprobación' }}</td>
                             <td>{{ $item->observaciones_jefe ?? 'N/A' }}</td>
                             <td class="text-end fw-bold">{{ number_format($item->horas_pagadas, 2) }}</td>
                         </tr>
@@ -530,51 +530,196 @@ if (window.location.search.length > 0) {
 <div class="modal fade" id="modalConsumidas" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
+
             <div class="modal-header bg-warning text-dark">
                 <h5 class="modal-title">Detalle de Horas Consumidas</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
+
             <div class="modal-body">
+
                 <table class="table table-hover">
-                    <thead><tr><th>Fecha</th><th>Motivo</th><th>Horas</th></tr></thead>
+                    <thead>
+                        <tr>
+                            <th>Fecha aprobación</th>
+                            <th>Fecha inicio</th>
+                            <th>Fecha fin</th>
+                            <th>Motivo</th>
+                            <th class="text-end">Horas</th>
+                        </tr>
+                    </thead>
+
                     <tbody>
                         @foreach($historialConsumidas as $item)
                         <tr>
-                            <td>{{ $item->created_at->format('d/m/Y') }}</td>
+
+                            <td>
+                                {{ $item->fecha_aprobacion
+                                    ? \Carbon\Carbon::parse($item->fecha_aprobacion)->format('d/m/Y')
+                                    : 'Sin aprobación'
+                                }}
+                            </td>
+
+                            <td>
+                                {{ $item->fecha_inicio
+                                    ? \Carbon\Carbon::parse($item->fecha_inicio)->format('d/m/Y')
+                                    : 'N/A'
+                                }}
+                            </td>
+
+                            <td>
+                                {{ $item->fecha_fin
+                                    ? \Carbon\Carbon::parse($item->fecha_fin)->format('d/m/Y')
+                                    : 'N/A'
+                                }}
+                            </td>
+
                             <td>{{ $item->motivo ?? 'Compensatorio' }}</td>
-                            <td class="text-end fw-bold">{{ number_format((($item->dias * 8) + $item->horas), 2) }}</td>
+
+                            <td class="text-end fw-bold">
+                                {{ number_format((($item->dias * 8) + $item->horas), 2) }}
+                            </td>
+
                         </tr>
                         @endforeach
                     </tbody>
+
                 </table>
+
             </div>
+
         </div>
     </div>
 </div>
 
 {{-- MODAL PENDIENTES --}}
+@php
+    $saldo = $totalAcumuladas - $totalConsumidas;
+@endphp
+
 <div class="modal fade" id="modalPendientes" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-xl">
         <div class="modal-content">
+
             <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title">Solicitudes Pendientes</h5>
+                <h5 class="modal-title">Estado de Horas (Detalle Completo)</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
+
             <div class="modal-body">
-                <table class="table table-hover">
-                    <thead><tr><th>Fecha</th><th>Estado</th><th>Horas</th></tr></thead>
-                    <tbody>
-                        @foreach($solicitudesPendientes as $item)
-                        <tr>
-                            <td>{{ $item->created_at->format('d/m/Y') }}</td>
-                            <td>{{ ucfirst($item->estado) }}</td>
-                            <td class="text-end fw-bold">{{ number_format((($item->dias * 8) + $item->horas), 2) }}</td>
-                        </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+
+                {{-- ================= RESUMEN ================= --}}
+                <div class="mb-4">
+
+                    <div class="d-flex justify-content-between">
+                        <span>Horas acumuladas</span>
+                        <strong>{{ number_format($totalAcumuladas, 2) }} h</strong>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <span>Horas consumidas</span>
+                        <strong>-{{ number_format($totalConsumidas, 2) }} h</strong>
+                    </div>
+
+                    <hr>
+
+                   <div class="d-flex justify-content-between fs-5">
+                      <span class="fw-bold">
+                          {{ $saldo >= 0 ? 'Saldo disponible' : 'Saldo a deber' }}
+                        </span>
+
+                       <strong class="{{ $saldo >= 0 ? 'text-success' : 'text-danger' }}">
+                          {{ number_format($saldo, 2) }} h
+                       </strong>
+                   </div>
+
+                </div>
+
+                {{-- ================= ACUMULADAS ================= --}}
+                <h6 class="fw-bold">Detalle de horas acumuladas</h6>
+
+                @foreach($historialAcumuladas as $item)
+                    <div class="border rounded p-3 mb-3">
+
+                        <div class="d-flex justify-content-between">
+                            <span>Fecha registro:</span>
+                            <strong>{{ $item->created_at->format('d/m/Y') }}</strong>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <span>Observación:</span>
+                            <span>{{ $item->observaciones_jefe ?? 'Sin observación' }}</span>
+                        </div>
+
+                        {{-- ACTIVIDADES --}}
+                        <div class="mt-2">
+                            <small class="fw-bold">Actividades realizadas:</small>
+
+                            @foreach($item->detalles as $detalle)
+                                @for($i = 1; $i <= 5; $i++)
+                                    @php
+                                        $actividad = $detalle->{"actividad$i"};
+                                    @endphp
+
+                                    @if($actividad)
+                                        <div class="small text-muted">
+                                            • {{ $detalle->{"fecha$i"} }} |
+                                            {{ $detalle->{"hora_inicio$i"} }} {{ $detalle->{"periodo_inicio$i"} }}
+                                            -
+                                            {{ $detalle->{"hora_fin$i"} }} {{ $detalle->{"periodo_fin$i"} }}
+                                            → {{ $actividad }}
+                                        </div>
+                                    @endif
+                                @endfor
+                            @endforeach
+                        </div>
+
+                        <div class="text-end fw-bold text-success mt-2">
+                            +{{ number_format($item->horas_acumuladas, 2) }} h
+                        </div>
+
+                    </div>
+                @endforeach
+
+                {{-- ================= CONSUMIDAS ================= --}}
+                <h6 class="fw-bold mt-4">Detalle de horas consumidas</h6>
+
+                @foreach($historialConsumidas as $item)
+                    <div class="border rounded p-3 mb-3">
+
+                        <div class="d-flex justify-content-between">
+                            <span>Fecha aprobación:</span>
+                            <strong>
+                                {{ $item->fecha_aprobacion
+                                    ? \Carbon\Carbon::parse($item->fecha_aprobacion)->format('d/m/Y')
+                                    : 'N/A'
+                                }}
+                            </strong>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <span>Rango de fechas:</span>
+                            <span>
+                                {{ $item->fecha_inicio ? \Carbon\Carbon::parse($item->fecha_inicio)->format('d/m/Y') : 'N/A' }}
+                                →
+                                {{ $item->fecha_fin ? \Carbon\Carbon::parse($item->fecha_fin)->format('d/m/Y') : 'N/A' }}
+                            </span>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <span>Motivo:</span>
+                            <span>{{ $item->motivo ?? 'Compensatorio' }}</span>
+                        </div>
+
+                        <div class="text-end fw-bold text-danger mt-2">
+                            -{{ number_format((($item->dias * 8) + $item->horas), 2) }} h
+                        </div>
+
+                    </div>
+                @endforeach
+
             </div>
+
         </div>
     </div>
 </div>
-
