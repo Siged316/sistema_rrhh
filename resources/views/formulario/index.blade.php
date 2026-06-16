@@ -99,11 +99,14 @@
                             <div class="row h-100">
                                 {{-- COLUMNA EVALUADOS --}}
                                 <div class="col-6 border-end">
-                                    <label class="form-label fw-bold text-danger p-2"><i class="fas fa-users me-2"></i>Evaluados</label>
+                                    <label class="form-label fw-bold text-danger p-2">
+                                        <input type="checkbox" id="seleccionarTodosEmpleados" class="form-check-input me-1">
+                                        <i class="fas fa-users me-2"></i>Evaluados (Todos)
+                                   </label>
                                     <div class="p-2 overflow-auto" style="max-height: 400px;">
                                         @foreach($soloEmpleados as $emp)
                                         <div class="form-check mb-2 item-colaborador" data-dept="{{ $emp->departamento_id }}">
-                                            <input class="form-check-input" type="checkbox" name="empleado_id[]" value="{{ $emp->id }}" id="emp_{{ $f->id }}_{{ $emp->id }}">
+                                            <input class="form-check-input check-empleado" type="checkbox" name="empleado_id[]" value="{{ $emp->id }}" id="emp_{{ $f->id }}_{{ $emp->id }}">
                                             <label class="form-check-label small" for="emp_{{ $f->id }}_{{ $emp->id }}">
                                                 {{ $emp->nombre }} {{ $emp->apellido }}
                                             </label>
@@ -114,7 +117,10 @@
 
                                 {{-- COLUMNA JEFES --}}
                                 <div class="col-6 seccion-jefes-col">
-                                    <label class="form-label fw-bold text-primary p-2"><i class="fas fa-user-tie me-2"></i>Jefe Evaluador</label>
+                                    <label class="form-label fw-bold text-primary p-2">
+                                      <input type="checkbox" id="seleccionarTodosJefes" class="form-check-input me-1">
+                                      <i class="fas fa-user-tie me-2"></i>Jefe Evaluador (Todos)
+                                   </label>
                                     <div class="p-2 overflow-auto" style="max-height: 400px;">
                                         @foreach($todosLosJefes as $j)
                                         <div class="border rounded p-2 mb-2 item-jefe" data-dept="{{ $j->departamento_id }}">
@@ -402,7 +408,42 @@ document.addEventListener("DOMContentLoaded", function() {
             console.error('Error:', error);
         });
     });
+
+     /*
+    |--------------------------------------------------------------------------
+    | CHECK DE TODOS LOS EVALUADORES
+    |--------------------------------------------------------------------------
+    */
 });
 </script>
 
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    function configurarSeleccionMasiva(checkboxMaestroId, claseCheckItem) {
+        const maestro = document.getElementById(checkboxMaestroId);
+        
+        if (!maestro) return;
+
+        maestro.addEventListener('change', function () {
+            const esChecked = this.checked;
+            // Obtenemos todos los checkboxes de la categoría
+            const items = document.querySelectorAll('.' + claseCheckItem);
+            
+            items.forEach(item => {
+                // Buscamos el contenedor padre (item-colaborador o item-jefe)
+                const contenedor = item.closest('.item-colaborador') || item.closest('.item-jefe');
+                
+                // Solo marcamos si el contenedor NO está oculto (display: none)
+                if (contenedor && contenedor.style.display !== 'none') {
+                    item.checked = esChecked;
+                }
+            });
+        });
+    }
+
+    // Inicializar
+    configurarSeleccionMasiva('seleccionarTodosEmpleados', 'check-empleado');
+    configurarSeleccionMasiva('seleccionarTodosJefes', 'jefe-check');
+});
+</script>
 @endsection
