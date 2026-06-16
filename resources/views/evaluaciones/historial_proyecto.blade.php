@@ -1,3 +1,4 @@
+
 <table
     id="tablaHistorialProyecto"
     class="table table-bordered table-striped">

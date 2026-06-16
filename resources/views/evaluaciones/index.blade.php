@@ -1,5 +1,4 @@
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
 
 @extends('layouts.app')
 
@@ -463,51 +462,73 @@ function inicializarGraficaGlobal() {
 // Función que carga el historial de un proyecto seleccionado
 function cargarHistorialProyecto()
 {
-    // Obtiene el ID del proyecto desde un <select>
-    const proyectoId =
-        document.getElementById('select_proyecto').value;
+    const proyectoId = document.getElementById('select_proyecto').value;
 
-    // Validación: si no hay proyecto seleccionado
-    if(!proyectoId)
-    {
-        Swal.fire({
-            icon:'warning',
-            title:'Seleccione un proyecto'
-        });
-
-        return; // detiene la ejecución
+    if (!proyectoId) {
+        Swal.fire({ icon: 'warning', title: 'Seleccione un proyecto' });
+        return;
     }
 
-    // Muestra un loader mientras se carga la información
     document.getElementById('contenedorHistorial').innerHTML = `
         <div class="text-center p-4">
             <div class="spinner-border"></div>
         </div>
     `;
 
-    // Petición al backend para obtener el historial del proyecto
     fetch(`/evaluaciones/historial-proyecto/${proyectoId}`)
-        .then(r => r.text()) // se espera HTML (no JSON)
+        .then(r => r.text())
         .then(html => {
 
-            // Inserta el HTML recibido en el contenedor
-            document.getElementById(
-                'contenedorHistorial'
-            ).innerHTML = html;
+            const contenedor = document.getElementById('contenedorHistorial');
+            contenedor.innerHTML = html;
 
-            // Inicializa DataTable sobre la tabla generada dinámicamente
-            $('#tablaHistorialProyecto').DataTable({
-                pageLength:10, // número de filas por página
-                responsive:true, // tabla adaptable a móviles
-                language:{
-                    url:'https://cdn.datatables.net/plug-ins/1.13.8/i18n/es-ES.json' // idioma español
+           setTimeout(() => {
+
+             if (typeof $.fn.dataTable === 'undefined') {
+                  console.error("DataTables no está cargado");
+                 return;
                 }
-            });
 
-        })
-        .catch(error => {
-            // Manejo de errores en la petición
-            console.error(error);
+              const table = $('#tablaHistorialProyecto');
+           
+              if (!table.length) return;
+
+              if ($.fn.dataTable.isDataTable(table)) {
+                  table.DataTable().destroy();
+                }
+
+               table.DataTable({
+                 pageLength: 2, 
+                 paging: true,
+                 // Configuración de idioma para español
+                 language: {
+                     "decimal": "",
+                     "emptyTable": "No hay información disponible en la tabla",
+                      "info": "Mostrando _START_ a _END_ de _TOTAL_ entradas",
+                      "infoEmpty": "Mostrando 0 a 0 de 0 entradas",
+                      "infoFiltered": "(filtrado de _MAX_ entradas totales)",
+                      "infoPostFix": "",
+                      "thousands": ",",
+                       "lengthMenu": "Mostrar _MENU_ entradas",
+                      "loadingRecords": "Cargando...",
+                      "processing": "Procesando...",
+                       "search": "Buscar:",
+                       "zeroRecords": "No se encontraron resultados",
+                       "paginate": {
+                         "first": "Primero",
+                         "last": "Último",
+                          "next": "Siguiente",
+                          "previous": "Anterior"
+                        },
+                          "aria": {
+                            "sortAscending": ": activar para ordenar la columna ascendente",
+                            "sortDescending": ": activar para ordenar la columna descendente"
+                        }
+                    }
+                });
+
+            }, 200);
+
         });
 }
 
