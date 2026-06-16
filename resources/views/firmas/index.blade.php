@@ -303,5 +303,15 @@
     .avatar-sm { font-size: 12px; font-weight: bold; letter-spacing: 1px; }
     .table-hover tbody tr:hover { background-color: #f8f9fa; }
     .sticky-top { top: -1px; z-index: 10; }
+    /* 1. Asegurar que el menú del perfil siempre esté por encima de TODO */
+   .dropdown-menu { z-index: 9999 !important;}
+    /* 2. Este es el truco clave: permitimos que el menú se salga del contenedor de la tabla */
+    .table-responsive {overflow: visible !important;}
+
+    /* 3. Ajuste para que la tabla no rompa el diseño al quitarle el overflow hidden */
+    .card-body {overflow: visible !important;}
+
+    /* 4. Si el header o el navbar tienen z-index, asegúrate de que sea menor al del dropdown */
+    header, .navbar { z-index: 1000 !important;}
 </style>
 @endsection
