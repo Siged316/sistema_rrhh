@@ -206,9 +206,9 @@ class ProyectoController extends Controller
     /**
      * OBTENER TAREAS DEL PROYECTO (AJAX)
      */
-public function getTareas($id)
-{
-    $proyecto = Proyecto::with(['tareas.responsable', 'tareas.historial'])->find($id);
+    public function getTareas($id)
+    {
+    $proyecto = Proyecto::with(['tareas.responsable', 'tareas.historial.usuario'])->find($id);
 
     if (!$proyecto) {
         return response()->json(['error' => 'Proyecto no encontrado'], 404);
@@ -224,10 +224,21 @@ public function getTareas($id)
                 'name' => $t->responsable ? ($t->responsable->nombre . ' ' . $t->responsable->apellido) : 'Sin asignar'
             ],
             'historial' => $t->historial->map(function($h) {
+
+            // Lógica simple para obtener el nombre
+                $nombre = "Usuario";
+                if ($h->usuario) {
+                    $nombre = ($h->usuario->empleado) 
+                        ? $h->usuario->empleado->nombre . ' ' . $h->usuario->empleado->apellido
+                        : ($h->usuario->name ?? $h->usuario->usuario);
+                } else {
+                    $nombre = ucfirst($h->tipo); // Si no hay usuario, pone "Jefe" o "Empleado"
+                }
                 return [
                     'fecha' => $h->created_at ? $h->created_at->format('d/m H:i') : '-',
                     'tipo' => $h->tipo ?? 'empleado',
                     'mensaje' => $h->mensaje,
+                   'nombre_autor' => $nombre,
                     'archivo_url' => $h->archivo_path ? asset('storage/'.$h->archivo_path) : null
                 ];
             })
@@ -235,7 +246,7 @@ public function getTareas($id)
     });
 
     return response()->json(['tareas' => $tareas]);
-}
+    } 
 
     /**
      * SUBIR DOCUMENTO DE TAREA

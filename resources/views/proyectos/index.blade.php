@@ -255,7 +255,7 @@ function abrirModalTareas(id) {
         .then(data => {
             let html = '<div class="list-group list-group-flush">';
             const rol = "{{ $rol ?? '' }}"; 
-            const usuarioActualId = {{ auth()->id() }}; // Obtenemos el ID del usuario logueado
+            const usuarioActualId = {{ auth()->id() }};
             const esJefe = (rol.includes('jefe') || rol.includes('admin'));
             
             data.tareas.forEach(t => {
@@ -266,49 +266,34 @@ function abrirModalTareas(id) {
                         const claseChat = (h.tipo === 'jefe') ? 'bg-warning text-dark' : 'bg-light border';
                         const alineacion = (h.tipo === 'jefe') ? 'text-end' : '';
                         
-                        htmlHistorial += `
-                            <div class="mb-2 ${alineacion}">
-                                <small class="text-muted d-block">${h.fecha} - ${h.tipo === 'jefe' ? 'Jefe' : 'Empleado'}</small>
-                                <p class="p-2 rounded ${claseChat} d-inline-block text-start" style="font-size: 0.85rem;">
-                                    ${h.mensaje}
-                                    ${h.archivo_url ? `<br><a href="${h.archivo_url}" target="_blank" class="text-danger"><i class="fas fa-file-download"></i> Descargar</a>` : ''}
-                                </p>
-                            </div>`;
+                       htmlHistorial += `
+                       <div class="mb-2 ${alineacion}">
+                            <small class="text-muted d-block">${h.fecha} - ${h.nombre_autor}</small>
+                            <p class="p-2 rounded ${claseChat} d-inline-block text-start" style="font-size: 0.85rem;">
+                                ${h.mensaje}
+                                ${h.archivo_url ? `<br><a href="${h.archivo_url}" target="_blank" class="text-danger"><i class="fas fa-file-download"></i> Descargar</a>` : ''}
+                            </p>
+                        </div>`;
                     });
                 }
 
-                // Normalización del estado para comparación
                 const estadoLower = t.estado ? t.estado.toLowerCase().replace(/í/g, 'i') : '';
+                const puedeEnviar = (t.responsable_id == usuarioActualId);
 
-                // Aseguramos que ambos sean tratados como strings para comparar IDs
-                const responsableId = String(t.responsable_id);
-                const miId = String(usuarioActualId);
-
-                // Lógica para mostrar el botón de enviar
-               // Solo se muestra si ES JEFE (para ver otras cosas) 
-              // O SI EL USUARIO ACTUAL ES EL RESPONSABLE DE LA TAREA
-              const puedeEnviar = (t.responsable_id == usuarioActualId);
-
-              console.log("Tarea:", t.titulo, "Responsable:", responsableId, "Mi ID:", miId, "Coincide:", puedeEnviar);
-
+                // ESTRUCTURA LIMPIA: Solo una vez el contenedor de chat
                 html += `
                 <div class="list-group-item px-0 py-3">
-                  
-                     <div class="d-flex justify-content-between align-items-center">
-                         <h6 class="mb-0 fw-bold">${t.titulo}</h6>
-                         <span class="badge ${estadoLower.includes('revision') ? 'bg-warning' : 'bg-secondary'}">${t.estado}</span>
-                      </div>
-                    
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0 fw-bold">${t.titulo}</h6>
+                        <span class="badge ${estadoLower.includes('revision') ? 'bg-warning' : 'bg-secondary'}">${t.estado}</span>
+                    </div>
 
-                  <small class="text-muted">
-                      Responsable: 
-                      <span class="${t.responsable.name === 'Sin asignar' ? 'text-danger' : 'text-dark fw-bold'}">
-                          ${t.responsable.name}
-                       </span>
+                    <small class="text-muted">
+                        Responsable: <span class="${t.responsable.name === 'Sin asignar' ? 'text-danger' : 'text-dark fw-bold'}">${t.responsable.name}</span>
                     </small>
 
-                    <div class="mt-3 bg-white p-2 border rounded" style="max-height: 250px; overflow-y: auto;">
-                        ${htmlHistorial}
+                    <div id="chat-container-${t.id}" class="mt-3 bg-white p-2 border rounded" style="max-height: 250px; overflow-y: auto;">
+                        ${htmlHistorial || '<p class="text-muted small">No hay mensajes.</p>'}
                     </div>
                     
                     ${!esJefe && puedeEnviar ? `
@@ -322,12 +307,8 @@ function abrirModalTareas(id) {
                     ` : `
                         ${esJefe && estadoLower.includes('revision') ? `
                             <div class="mt-3 d-flex gap-2">
-                                <button onclick="validarTarea(${t.id})" class="btn btn-success btn-sm">
-                                     Aprobar
-                                </button>
-                                <button onclick="solicitarCorreccion(${t.id})" class="btn btn-warning btn-sm">
-                                     Corrección
-                                </button>
+                                <button onclick="validarTarea(${t.id})" class="btn btn-success btn-sm">Aprobar</button>
+                                <button onclick="solicitarCorreccion(${t.id})" class="btn btn-warning btn-sm">Corrección</button>
                             </div>
                         ` : ''}
                     `}
@@ -336,12 +317,40 @@ function abrirModalTareas(id) {
             
             contenedor.innerHTML = html + '</div>';
             
-            // Gestión de la instancia del modal
+            // Mostrar modal
             const modalEl = document.getElementById('modalTareasProyecto');
-            if (modalEl) {
-                const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-                modal.show();
-            }
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+
+            // Escuchamos el evento 'shown.bs.modal' de Bootstrap, 
+           // que se dispara cuando el modal YA terminó de abrirse.
+          modalEl.addEventListener('shown.bs.modal', () => {
+              data.tareas.forEach(t => {
+                 const chatContainer = document.getElementById(`chat-container-${t.id}`);
+                 if (chatContainer) {
+                      // Buscamos el último elemento hijo dentro del contenedor
+                      const lastMessage = chatContainer.lastElementChild;
+                      if (lastMessage) {
+                          lastMessage.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                        } else {
+                          // Si no hay mensajes, dejamos el scroll arriba
+                         chatContainer.scrollTop = chatContainer.scrollHeight;
+                        }
+                    }
+               });
+            }, { once: true }); // { once: true } evita que el evento se duplique si abres el modal varias veces
+
+
+            modal.show();
+
+            // Scroll automático (usamos setTimeout para asegurar que el DOM esté listo)
+            setTimeout(() => {
+                data.tareas.forEach(t => {
+                    const chatContainer = document.getElementById(`chat-container-${t.id}`);
+                    if (chatContainer) {
+                        chatContainer.scrollTop = chatContainer.scrollHeight;
+                    }
+                });
+            }, 100);
         })
         .catch(err => {
             console.error("Error en fetch:", err);

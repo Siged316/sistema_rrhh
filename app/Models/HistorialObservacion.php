@@ -25,6 +25,8 @@ public function tarea()
 
 public function usuario()
 {
+    // 'user_id' es el nombre de la columna en tu tabla de historial
+    
     return $this->belongsTo(User::class, 'user_id');
 }
 }
