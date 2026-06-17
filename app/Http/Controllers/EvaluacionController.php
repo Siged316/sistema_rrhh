@@ -41,7 +41,8 @@ class EvaluacionController extends Controller
         // Consultar evaluaciones pendientes asignadas al evaluador logueado
         $evaluaciones = DB::table('asignacion_evaluaciones as a')
             ->join('evaluacion_formularios as f', 'a.formulario_id', '=', 'f.id')
-            ->select('a.*', 'f.nombre as nombre_formulario')
+            ->join('empleados as e', 'a.empleado_id', '=', 'e.id')
+            ->select('a.*', 'f.nombre as nombre_formulario', DB::raw("CONCAT(e.nombre, ' ', e.apellido) as nombre_colaborador"))
             ->where('a.evaluador_id', $usuarioId)
             ->where('a.estado', '=', 'Pendiente')
             ->get();

@@ -72,6 +72,9 @@
                             <div>
                                 <h5>{{ $eval->nombre_formulario }}</h5>
                                 <small class="text-muted">{{ $eval->tipo }}</small>
+                                <small class="text-primary fw-bold">
+                                   → Evaluado: {{ $eval->nombre_colaborador }}
+                               </small>
                             </div>
                             <a href="{{ route('evaluaciones.llenar', $eval->id) }}" class="btn btn-primary btn-sm">Llenar</a>
                         </div>
@@ -149,7 +152,7 @@
 
     <hr class="my-5">
 
-<div class="card card-soft p-4">
+   <div class="card card-soft p-4">
     <h5 class="fw-bold mb-3">
         Historial General de Formularios
     </h5>
@@ -160,7 +163,7 @@
     </button>
 
     <div id="contenedorHistorial"></div>
-</div>
+   </div>
 
 
 </div>
@@ -531,7 +534,6 @@ function cargarHistorialProyecto()
 
         });
 }
-
 
 // Función que abre el detalle de un historial específico
 function verDetalleHistorial(id)
