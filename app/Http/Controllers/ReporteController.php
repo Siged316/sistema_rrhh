@@ -472,8 +472,8 @@ class ReporteController extends Controller
        $anchoTitulo = $bboxTitulo[2] - $bboxTitulo[0];
        $xTitulo = ($width / 2) - ($anchoTitulo / 2);
 
-       // Dibujamos el título en la parte superior (y=40)
-       imagettftext($image, $tamanoFuenteTitulo, 0, $xTitulo, 40, $text_main, $fontPath, $titulo);
+       // Dibujamos el título en la parte superior (y=20)
+       imagettftext($image, $tamanoFuenteTitulo, 0, $xTitulo, 20, $text_main, $fontPath, $titulo);
 
         // Grid y etiquetas
         $left = 70; $bottom = 300; $top = 50; $right = 750;
@@ -516,7 +516,7 @@ class ReporteController extends Controller
            $bbox = imagettfbbox(12, 0, $fontPath, $textVal);
            $textWidth = $bbox[2] - $bbox[0];
            $xText = $x + ($barWidth / 2) - ($textWidth / 2);
-           imagettftext($image, 12, 0, $xText, $y1 - 15, $text_main, $fontPath, $textVal);
+           imagettftext($image, 12, 0, $xText, $y1 - 10, $text_main, $fontPath, $textVal);
     
              // --- ETIQUETA INFERIOR (La categoría: Acumulado / Consumido) ---
             $bboxCat = imagettfbbox(12, 0, $fontPath, $d->actividad);

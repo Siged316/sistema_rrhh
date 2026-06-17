@@ -236,7 +236,11 @@
     </table>
 
     <!-- RESUMEN DE SALDOS AL FINAL -->
-   <div class="seccion-saldo" style="margin-top: 20px;">
+  <div class="seccion-saldo" style="margin-top: 20px;">
+    @php
+        $saldoFinal = $totalAcumulado - $totalConsumido;
+        $esSaldoDisponible = $saldoFinal >= 0;
+    @endphp
     <table class="tabla-saldo" style="width: 300px; border: 1px solid #ccc;">
         <tr>
             <td class="saldo-label" style="font-size: 8pt; border-bottom: 1px solid #eee;">Total Acumulado:</td>
@@ -250,12 +254,16 @@
             <td class="saldo-label" style="font-size: 8pt; border-bottom: 1px solid #eee;">Total Pagado:</td>
             <td class="text-right" style="color: #0d6efd; border-bottom: 1px solid #eee;">- {{ number_format($totalPagado, 2) }} hrs</td>
         </tr>
-        <tr style="background-color: #f0f0f0;">
-            <td class="saldo-label" style="font-size: 10pt;">SALDO DISPONIBLE:</td>
-            <td class="saldo-valor" style="text-align: right;">{{ number_format($totalAcumulado - $totalConsumido - $totalPagado, 2) }} hrs</td>
+        <tr style="background-color: {{ $esSaldoDisponible ? '#e8f5e9' : '#ffebee' }};">
+            <td class="saldo-label" style="font-size: 10pt;">
+                {{ $esSaldoDisponible ? 'HORAS DISPONIBLES:' : 'HORAS A DEBER:' }}
+            </td>
+            <td class="saldo-valor" style="text-align: right; color: {{ $esSaldoDisponible ? '#198754' : '#dc3545' }};">
+                {{ number_format(abs($saldoFinal), 2) }} hrs
+            </td>
         </tr>
     </table>
-   </div>
+</div>
 
    <!-- SECCIÓN DE GRÁFICA -->
     @if(!empty($graficaBase64))
@@ -268,6 +276,7 @@
            <img
             src="{{ $graficaBase64 }}"
             style="width:500px; height:auto;"
+            
             >
        </div>
 
