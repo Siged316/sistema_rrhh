@@ -150,64 +150,43 @@
 
     {{-- TABLA DE DATOS --}}
     <table class="tabla">
-
         <thead>
-            <tr>
-                <th width="55%">Actividad / Proyecto</th>
-                <th width="25%">Fecha de Evaluación</th>
-                <th width="20%" style="text-align: center;">Resultado</th>
-            </tr>
-        </thead>
-
-        <tbody>
-
-            @forelse($datos as $dato)
-
-                <tr>
-
-                    <td>
-                        {{ $dato->actividad }}
-                    </td>
-
-                    <td>
-                        {{ \Carbon\Carbon::parse($dato->fecha)->format('d/m/Y') }}
-                    </td>
-
-                    <td align="center">
-                        <strong style="color:#003366;">
-                            {{ number_format($dato->resultado, 2) }}%
-                        </strong>
-                    </td>
-
-                </tr>
-
-            @empty
-
-                <tr>
-                    <td colspan="3" align="center">
-                        No se registraron evaluaciones en este periodo.
-                    </td>
-                </tr>
-
-            @endforelse
-
-        </tbody>
-
-
-        {{-- PROMEDIO --}}
+           <tr>
+             <th width="25%">Actividad / Proyecto</th>
+             <th width="15%">Formulario</th>
+             <th width="15%">Tipo</th>
+             <th width="20%">Departamento</th>
+             <th width="15%">Fecha</th>
+             <th width="10%" style="text-align: center;">Resultado</th>
+           </tr>
+       </thead>
+       <tbody>
+         @forelse($datos as $dato)
+          <tr>
+             <td>{{ $dato->actividad }}</td>
+              <td>{{ $dato->nombre_formulario ?? 'N/A' }}</td>
+              <td>{{ $dato->tipo }}</td>
+              <td>{{ $dato->depto_evaluador }}</td>
+              <td>{{ \Carbon\Carbon::parse($dato->fecha)->format('d/m/Y') }}</td>
+              <td align="center">
+              <strong>{{ number_format($dato->resultado, 2) }}%</strong>
+              </td>
+          </tr>
+         @empty
+           <tr>
+             <td colspan="6" align="center">No hay registros de evaluaciones completadas.</td>
+          </tr>
+          @endforelse
+       </tbody>
        <tfoot>
-         <tr class="total-row">
-         <td colspan="2" align="right">
-             RENDIMIENTO GLOBAL DEL COLABORADOR:
-          </td>
-          <td align="center" style="color:#003366;">
-              {{-- Cambiamos $promedio por $promedio_global --}}
-              {{ number_format($promedio_global ?? 0, 2) }}%
-          </td>
-         </tr>
+          <tr class="total-row">
+             <td colspan="5" align="right"><strong>RENDIMIENTO GLOBAL:</strong></td>
+             <td align="center" style="color:#003366;">
+                 <strong>{{ number_format($promedio_global ?? 0, 2) }}%</strong>
+             </td>
+          </tr>
       </tfoot>
-
-    </table>
+   </table>
     
     <!-- SECCIÓN DE GRÁFICA -->
     @if(!empty($graficaBase64))

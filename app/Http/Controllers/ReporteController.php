@@ -241,19 +241,47 @@ class ReporteController extends Controller
 
     public function generarIndividualPdf(Request $request) {
         $empleado = Empleado::findOrFail($request->empleado_id);
+        // 1. Construcción de la consulta (sin ejecutarla aún)
         $query = DB::table('asignacion_evaluaciones as ae')
-            ->leftJoin('proyectos as p', 'ae.proyecto_id', '=', 'p.id')
-            ->select(DB::raw("COALESCE(p.nombre, ae.tipo) as actividad"), 'ae.created_at as fecha', 'ae.puntuacion_total as resultado')
-            ->where('ae.empleado_id', $request->empleado_id)
-            ->whereYear('ae.created_at', $request->anio);
+        ->leftJoin('proyectos as p', 'ae.proyecto_id', '=', 'p.id')
+        ->leftJoin('evaluacion_formularios as f', 'ae.formulario_id', '=', 'f.id')
+        ->select(
+            'ae.id',
+            'ae.evaluador_id',
+            'ae.tipo',
+            'ae.estado',
+            'ae.puntuacion_total as resultado',
+            'ae.created_at as fecha',
+            'p.nombre as nombre_proyecto',
+            'f.nombre as nombre_formulario',
+            DB::raw("COALESCE(p.nombre, f.nombre, ae.tipo) as actividad")
+        )
+        ->where('ae.empleado_id', $request->empleado_id)
+        ->where('ae.estado', 'Completada') // Filtro estricto
+        ->whereYear('ae.created_at', $request->anio);
 
-        if ($request->periodo == 'mensual' && $request->mes) {
-            $query->whereMonth('ae.created_at', $request->mes);
+        // 2. Aplicar filtros condicionales ANTES de ejecutar get()
+       if ($request->periodo == 'mensual' && $request->mes) {
+         $query->whereMonth('ae.created_at', $request->mes);
+        }
+
+       // 3. Ejecutar la consulta una sola vez
+       $datos = $query->get();
+
+      // 4. Lógica corregida para obtener el departamento directamente del empleado evaluador
+      foreach ($datos as $dato) {
+         // Buscamos el departamento uniendo directamente empleados con departamentos
+          $nombreDepto = DB::table('empleados as e')
+          ->join('departamentos as d', 'e.departamento_id', '=', 'd.id')
+          ->where('e.id', $dato->evaluador_id) // Usamos evaluador_id directamente contra el ID de empleado
+          ->value('d.nombre');
+
+           $dato->depto_evaluador = $nombreDepto ?? 'Sin Depto';
         }
  
         $firma = DB::table('firmas')->where('activo', 1)->first();
 
-        $datos = $query->get();
+     
 
         
        // ===============================
@@ -340,10 +368,21 @@ class ReporteController extends Controller
            imagettftext($image, 10, 0, $x + ($barWidth/2) - 15, $textY, $text_main, $fontPath, $valText);
 
           // Etiqueta de actividad (abajo)
-          $texto = strlen($d->actividad) > 10 ? substr($d->actividad, 0, 8) . '...' : $d->actividad;
-          imagettftext($image, 10, 0, $x, $bottom + 25, $text_main, $fontPath, $texto);
-
-         $x += $spacing;
+         $texto = $d->actividad;
+    
+          // Si el texto es muy largo, lo dividimos en dos líneas
+          if (strlen($texto) > 15) {
+             // Cortamos en dos partes (aproximadamente)
+             $linea1 = substr($texto, 0, 15) . '-';
+             $linea2 = substr($texto, 15);
+        
+              imagettftext($image, 9, 0, $x - 5, $bottom + 35, $text_main, $fontPath, $linea1);
+              imagettftext($image, 9, 0, $x - 5, $bottom + 50, $text_main, $fontPath, $linea2);
+            } else {
+             // Texto normal
+             imagettftext($image, 9, 0, $x - 5, $bottom + 35, $text_main, $fontPath, $texto);
+            }
+          $x += $spacing;
         }
 
        // Salida
