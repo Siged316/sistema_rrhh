@@ -238,16 +238,20 @@
         </td>
     </tr>
 
-    {{-- Saldo disponible --}}
+    {{-- Horas disponibles/deudoras --}}
+    @php
+     $horasFinales = $tAcum - $tCons;
+     $esDisponible = $horasFinales >= 0;
+    @endphp
     <tr>
         <td colspan="3" style="background-color: #ffffff;"></td>
 
         <td style="background-color: #f0f0f0; border: 1px solid #cccccc;">
-            <b>SALDO DISPONIBLE:</b>
+            <b>{{ $esDisponible ? 'HORAS DISPONIBLES:' : 'HORAS A DEBER:' }}</b>
         </td>
 
         <td style="background-color: #f0f0f0; font-weight: bold; text-align: right; border: 1px solid #cccccc;">
-            {{ number_format($tAcum - $tCons - $tPag, 2) }}
+            {{ number_format($tAcum - $tCons, 2) }}
         </td>
     </tr>
 
