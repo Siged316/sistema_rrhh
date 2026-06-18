@@ -122,31 +122,18 @@
                                     $esMiTurnoParaFirmar = true;
                                 }
                             @endphp
-                           <td class="ps-4">
-                              @php
-                               // 1. Obtenemos el nombre de la solicitud
-                               $nombre_solicitud = trim($solicitud->nombre);
-                               $partes = explode(' ', $nombre_solicitud);
-        
-                              // 2. Extraemos el primer nombre y el último apellido
-                               $nombre_buscado = $partes[0]; // Danny
-                               $apellido_buscado = end($partes); // Rosales
-        
-                              // 3. Buscamos al empleado que tenga ambos
-                              $emp = \App\Models\Empleado::where('nombre', 'LIKE', '%' . $nombre_buscado . '%')
-                                   ->where('apellido', 'LIKE', '%' . $apellido_buscado . '%')
-                                   ->first();
-                                @endphp
-
-                               <div class="fw-bold text-primary">
-                                  {{ $emp ? strtoupper($emp->nombre . ' ' . $emp->apellido) : strtoupper($solicitud->nombre) }}
-                               </div>
-    
-                               <div class="small text-muted">
-                                    <b>{{ $emp ? strtoupper($emp->cargo) : 'CARGO NO DEFINIDO' }}</b>
-                              </div>
-                            </td>
-
+                           <td class="ps-4"> 
+                             <div class="fw-bold text-primary">
+                                 {{-- Aquí accedes directamente al nombre que ya está en la tabla solicitudes --}} 
+                                  {{ strtoupper($solicitud->nombre) }} 
+                                </div> 
+                                <div class="small text-muted"> 
+                                   {{-- Si quieres mostrar el cargo, lo ideal es que esté en la tabla solicitudes --}} 
+                                  {{-- Si no existe en solicitudes, muestra un valor por defecto --}} 
+                                 <b>{{ strtoupper($solicitud->empleado_info->cargo ?? 'CARGO NO DEFINIDO') }}</b>
+                              </div> 
+                            </td>                   
+            
                             {{-- Columna: Tipo --}}
                             <td class="text-center">
                                 <span class="badge bg-white text-dark border shadow-sm">{{ strtoupper(str_replace('_',' ',$solicitud->tipo)) }}</span>
@@ -238,8 +225,9 @@
 function verDetalles(id) {
     const content = document.getElementById('modalBodyContent');
     const modalElement = document.getElementById('verSolicitudModal');
-    const modalInstance = new bootstrap.Modal(modalElement);
+    const modalInstance = bootstrap.Modal.getOrCreateInstance(modalElement);
 
+    // 1. Mostrar cargando
     content.innerHTML = `
         <div class="text-center py-5">
             <div class="spinner-border text-primary"></div>
@@ -248,15 +236,22 @@ function verDetalles(id) {
     `;
     modalInstance.show();
 
-    fetch(`/solicitudes/${id}`, {
+    // 2. Construir URL y realizar UNA SOLA petición
+    const url = `${window.location.origin}/solicitudes/${id}`;
+    
+    fetch(url, {
         headers: { 'X-Requested-With': 'XMLHttpRequest' }
     })
     .then(response => {
-        if (!response.ok) throw new Error('Error al cargar datos');
-        return response.text();
+        if (!response.ok) {
+            throw new Error('Error ' + response.status);
+        }
+        return response.text(); // Recibimos el HTML como texto
     })
     .then(html => {
         content.innerHTML = html;
+        
+        // 3. Vincular botones de firma
         const signatureButtons = content.querySelectorAll('button[data-firma]');
         signatureButtons.forEach(btn => {
             btn.addEventListener('click', function() {
@@ -265,7 +260,8 @@ function verDetalles(id) {
         });
     })
     .catch(err => {
-        content.innerHTML = `<div class="alert alert-danger">Error al cargar datos.</div>`;
+        console.error("Error detallado:", err);
+        content.innerHTML = `<div class="alert alert-danger">Error al cargar datos: ${err.message}</div>`;
     });
 }
 

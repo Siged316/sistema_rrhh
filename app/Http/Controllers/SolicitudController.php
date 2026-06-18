@@ -49,11 +49,11 @@ class SolicitudController extends Controller
       $userEmail = $user->email;
 
       $query = Solicitud::with('empleado');
-// En tu controlador
-$solicitudes = Solicitud::all();
 
-// Si quieres evitar este error y mejorar el rendimiento, 
-// lo ideal es enviar a la vista el objeto ya relacionado.
+     
+
+         // Si quieres evitar este error y mejorar el rendimiento, 
+       // lo ideal es enviar a la vista el objeto ya relacionado.
       // --- 1. FILTROS DE SEGURIDAD/VISIBILIDAD ---
 
        if (in_array($rolNormalizado, ['administrador', 'gth', 'direccion'], true)) {
@@ -144,89 +144,140 @@ $solicitudes = Solicitud::all();
    * Procesa y guarda una firma como imagen binaria.
    * Se utiliza cuando el usuario sube su firma.
    */
-   public function show($id)
-    {
-      $solicitud = Solicitud::with('empleado', 'aprobaciones.firma')->findOrFail($id);
-      $empleado = $solicitud->empleado;
-      $fechaIngreso = \Carbon\Carbon::parse($empleado->fecha_ingreso);
-      $ahora = now();
-      $aniosCumplidos = floor($fechaIngreso->diffInYears($ahora));
+public function show($id)
 
-       /* ==========================
-          1. DERECHO GANADO
-        ==========================*/
-       $totalDerechoHistorico = 0;
-       $tipoContrato = strtolower($empleado->tipo_contrato);
+{
 
-        if ($tipoContrato === 'permanente') {
-          // AJUSTE: Sumamos los años cumplidos + el año que está cursando
-          // Si tiene 0 años cumplidos, calcula el Año 1.
-          // Si tiene 1 año cumplido, suma Año 1 + Año 2.
-          $ciclosACalcular = $aniosCumplidos + 1; 
+    // 1. Inicialización de variables
 
-          for ($i = 1; $i <= $ciclosACalcular; $i++) {
-              $anioBusqueda = ($i > 4) ? 4 : $i; 
+    $empleado = null; $saldoActual = 0; $nuevoSaldo = 0; $tiempoExacto = 'N/A';
 
-              $politica = \App\Models\PoliticaVacaciones::whereRaw('LOWER(tipo_contrato) = ?', ['permanente'])
-                ->where('anio_antiguedad', $anioBusqueda)
-                ->first();
+    $totalDerechoHistorico = 0; $esVacaciones = false;
 
-              if ($politica) {
-                  $totalDerechoHistorico += $politica->dias_anuales;
+
+
+    try {
+
+        $solicitud = \App\Models\Solicitud::findOrFail($id);
+
+       
+
+        // 2. Búsqueda robusta (la que soluciona tu problema de datos)
+
+        $partes = explode(' ', trim($solicitud->nombre));
+
+        $empleado = \App\Models\Empleado::where('nombre', 'LIKE', '%' . ($partes[0] ?? '') . '%')
+
+                      ->where('apellido', 'LIKE', '%' . end($partes) . '%')
+
+                      ->first();
+
+
+
+        if ($empleado) {
+
+            $fechaIngreso = \Carbon\Carbon::parse($empleado->fecha_ingreso);
+
+            $ahora = now();
+
+            $aniosCumplidos = floor($fechaIngreso->diffInYears($ahora));
+
+            $tipoContrato = strtolower($empleado->tipo_contrato ?? '');
+
+            $esVacaciones = str_contains(strtolower($solicitud->tipo), 'vacaciones');
+
+
+
+            // 3. Lógica de cálculo original (Ciclos de antigüedad)
+
+            if ($tipoContrato === 'permanente') {
+
+                $ciclosACalcular = $aniosCumplidos + 1;
+
+                for ($i = 1; $i <= $ciclosACalcular; $i++) {
+
+                    $anioBusqueda = ($i > 4) ? 4 : $i;
+
+                    $politica = \App\Models\PoliticaVacaciones::whereRaw('LOWER(tipo_contrato) = ?', ['permanente'])
+
+                                ->where('anio_antiguedad', $anioBusqueda)->first();
+
+                    if ($politica) $totalDerechoHistorico += $politica->dias_anuales;
+
                 }
+
+            } else {
+
+                $politica = \App\Models\PoliticaVacaciones::whereRaw('LOWER(tipo_contrato) = ?', [$tipoContrato])->first();
+
+                $totalDerechoHistorico = $politica ? $politica->dias_anuales : ($empleado->dias_vacaciones_anuales ?? 0);
+
             }
-        } else {
-          $politica = \App\Models\PoliticaVacaciones::whereRaw('LOWER(tipo_contrato) = ?', [$tipoContrato])
-            ->first();
-           $totalDerechoHistorico = $politica ? $politica->dias_anuales : ($empleado->dias_vacaciones_anuales ?? 0);
+
+
+
+            // 4. Días consumidos (Usando tu tabla recuperada)
+
+            $diasConsumidosOficial = (int) \DB::table('vacaciones')
+
+                ->where('empleado_id', $empleado->id)
+
+                ->where('estado', 'aprobado')
+
+                ->sum('dias_aprobados');
+
+
+
+            // 5. Lógica de saldos
+
+            if ($solicitud->estado === 'aprobado' && $esVacaciones) {
+
+                $saldoActual = $totalDerechoHistorico - ($diasConsumidosOficial - $solicitud->dias);
+
+                $nuevoSaldo  = $totalDerechoHistorico - $diasConsumidosOficial;
+
+            } else {
+
+                $saldoActual = $totalDerechoHistorico - $diasConsumidosOficial;
+
+                $nuevoSaldo  = $esVacaciones ? ($saldoActual - $solicitud->dias) : $saldoActual;
+
+            }
+
+
+
+            // 6. Tiempo Exacto
+
+            $antiguedad = $fechaIngreso->diff($ahora);
+
+            $tiempoExacto = ($antiguedad->y > 0 ? $antiguedad->y . ' años ' : '') . ($antiguedad->m > 0 ? $antiguedad->m . ' meses' : '');
+
+            if ($tiempoExacto == '') $tiempoExacto = 'Menos de un mes';
+
         }
 
-       /* ==========================
-         2. DIAS CONSUMIDOS
-        ==========================*/
-       $diasConsumidosOficial = \DB::table('vacaciones')
-        ->where('empleado_id', $empleado->id)
-        ->where('estado', 'aprobado')
-        ->sum('dias_aprobados') ?? 0;
 
-        /* ==========================
-       3. LÓGICA DE SALDOS
-        ==========================*/
-       $esVacaciones = str_contains(strtolower($solicitud->tipo), 'vacaciones');
 
-        if ($solicitud->estado === 'aprobado' && $esVacaciones) {
-         $saldoActual = $totalDerechoHistorico - ($diasConsumidosOficial - $solicitud->dias);
-         $nuevoSaldo  = $totalDerechoHistorico - $diasConsumidosOficial;
-        } else {
-          $saldoActual = $totalDerechoHistorico - $diasConsumidosOficial;
-          $nuevoSaldo  = $esVacaciones ? ($saldoActual - $solicitud->dias) : $saldoActual;
-        }
+        // 7. Renderizado
 
-       /* ==========================
-         4. TIEMPO EXACTO
-       ==========================*/
-       $antiguedad = $fechaIngreso->diff($ahora);
-       $tiempoExacto = '';
-       if ($antiguedad->y > 0) {
-          $tiempoExacto .= $antiguedad->y . ($antiguedad->y == 1 ? ' año' : ' años');
-       }
-       if ($antiguedad->m > 0) {
-          if ($antiguedad->y > 0) $tiempoExacto .= ' y ';
-             $tiempoExacto .= $antiguedad->m . ($antiguedad->m == 1 ? ' mes' : ' meses');
-            }
+      return view('solicitudes.show', compact(
 
-           if ($antiguedad->y == 0 && $antiguedad->m == 0) {
-             $tiempoExacto = 'Menos de un mes';
-            }
+        'solicitud', 'empleado', 'saldoActual', 'nuevoSaldo',
 
-            if(request()->ajax()) {
-               return view('solicitudes.show', compact(
-                 'solicitud', 'empleado', 'saldoActual', 'nuevoSaldo', 
-                 'tiempoExacto', 'totalDerechoHistorico', 'esVacaciones'
-                ));
-            }
-          return view('solicitudes.index');
+        'tiempoExacto', 'totalDerechoHistorico', 'esVacaciones'
+
+    ));
+
+
+
+    } catch (\Exception $e) {
+
+        return response()->json(['html' => '<div class="alert alert-danger">Error: ' . $e->getMessage() . '</div>']);
+
     }
+
+} 
+
 
     /**
     * MÉTODO: store

@@ -40,7 +40,7 @@ class Solicitud extends Model
     /**
      * Relación: Una solicitud pertenece a un empleado.
      */
-     public function empleado()
+    public function empleado()
     {
     
        // Vinculamos por ID, que es lo correcto para las relaciones de base de datos
@@ -50,23 +50,33 @@ class Solicitud extends Model
     // 2. Crea un Accessor para obtener el empleado de forma dinámica
 public function getEmpleadoInfoAttribute()
 {
-    // 1. Prioridad 1: ID
+    // 1. Prioridad 1: ID (El método más rápido y seguro)
     if ($this->empleado_id) {
-        return Empleado::find($this->empleado_id);
+        return \App\Models\Empleado::find($this->empleado_id);
     }
 
-    // 2. Prioridad 2: Correo
+    // 2. Prioridad 2: Correo (Búsqueda exacta)
     if (!empty($this->correo)) {
-        $empleado = Empleado::where('email', $this->correo)->first();
+        $empleado = \App\Models\Empleado::where('email', $this->correo)->first();
         if ($empleado) return $empleado;
     }
 
-    // 3. Prioridad 3: Nombre (Solución para nombres completos)
+    // 3. Prioridad 3: Búsqueda flexible por Nombre y Apellido
     if (!empty($this->nombre)) {
-        // Concatenamos nombre y apellido en la BD para comparar contra el nombre completo de la solicitud
-        return Empleado::whereRaw("CONCAT(nombre, ' ', apellido) LIKE ?", ['%' . $this->nombre . '%'])
-            ->orWhere('nombre', 'LIKE', '%' . $this->nombre . '%')
-            ->first();
+        // Separamos el nombre de la solicitud en partes (por si trae varios nombres)
+        $partes = explode(' ', trim($this->nombre));
+        
+        $query = \App\Models\Empleado::query();
+
+        // Buscamos buscando que cada parte del nombre coincida en alguna de las columnas
+        foreach ($partes as $parte) {
+            $query->where(function($q) use ($parte) {
+                $q->where('nombre', 'LIKE', '%' . $parte . '%')
+                  ->orWhere('apellido', 'LIKE', '%' . $parte . '%');
+            });
+        }
+
+        return $query->first();
     }
 
     return null;
