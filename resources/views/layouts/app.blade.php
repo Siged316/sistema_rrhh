@@ -325,12 +325,15 @@
                     <i class="fa-solid fa-chevron-down small"></i>
 
                     <div class="submenu">
+        
+                        {{-- Validamos el rol para este enlace específico usamos el AuthServiceProvider--}}
+                      @can('ver-informes-index')
+                           <a href="{{ route('informes.index') }}"
+                              class="submenu-item">
 
-                        <a href="{{ route('informes.index') }}"
-                           class="submenu-item">
-
-                            Informes y Estadísticas
-                        </a>
+                               Informes y Estadísticas
+                          </a>
+                       @endcan
 
                         <a href="{{ route('informes.graficas.index') }}" class="submenu-item">
                             Gráficas Comparativas
