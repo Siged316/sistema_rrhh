@@ -14,6 +14,7 @@ use App\Models\PoliticaVacaciones;      // Modelo de políticas de vacaciones
 use App\Models\TiempoCompensatorio;     // Modelo para registrar movimientos de tiempo compensatorio
 use App\Models\SaldoTiempoCompensatorio; // Modelo para saldo de tiempo compensatorio
 use Illuminate\Support\Facades\Mail;      // Envío de correos
+use App\Mail\SolicitudActualizada;
 use App\Mail\CambioTipoSolicitudMail;     // Mailable para notificar cambio de tipo
 use Illuminate\Support\Facades\DB;      // Facade para operaciones de base de datos y transacciones
 use Illuminate\Http\Request;            // Clase para capturar requests HTTP
@@ -346,8 +347,8 @@ public function show($id)
     * Gestiona aprobación o rechazo de solicitudes.
     * Controla flujo: Jefe → GTH.
     */
-public function procesar(Request $request, $id)
-{
+    public function procesar(Request $request, $id)
+    {
     try {
         $solicitud = Solicitud::with('empleado')->findOrFail($id);
         $user = auth()->user();
@@ -371,27 +372,29 @@ public function procesar(Request $request, $id)
             }
 
           if (strtolower($rolUsuario) == 'gth') {
-    // Lógica de GTH
-    if (!$solicitud->aprobaciones()->where('rol_nombre','Jefe Inmediato')->exists()) {
-        return response()->json(['success' => false, 'message' => 'Falta la firma del Jefe.'], 422);
-    }
-    if ($solicitud->aprobaciones()->where('rol_nombre','GTH')->exists()) {
-        return response()->json(['success' => false, 'message' => 'Ya firmaste como GTH.'], 422);
-    }
-    $rol_aprobacion = 'GTH';
-    $paso = 2;
+               // Lógica de GTH
+              if (!$solicitud->aprobaciones()->where('rol_nombre','Jefe Inmediato')->exists()) {
+                   return response()->json(['success' => false, 'message' => 'Falta la firma del Jefe.'], 422);
+                }
+    
+                if ($solicitud->aprobaciones()->where('rol_nombre','GTH')->exists()) {
+                    return response()->json(['success' => false, 'message' => 'Ya firmaste como GTH.'], 422);
+                }
 
-} elseif ($esJefeDepto) {
-    // Lógica de Jefe
-    if ($solicitud->aprobaciones()->where('rol_nombre','Jefe Inmediato')->exists()) {
-        return response()->json(['success' => false, 'message' => 'Ya tiene firma del Jefe.'], 422);
-    }
-    $rol_aprobacion = 'Jefe Inmediato';
-    $paso = 1;
+               $rol_aprobacion = 'GTH';
+               $paso = 2;
 
-} else {
-    return response()->json(['success' => false, 'message' => 'No tienes permisos.'], 403);
-}
+            } elseif ($esJefeDepto) {
+              // Lógica de Jefe
+              if ($solicitud->aprobaciones()->where('rol_nombre','Jefe Inmediato')->exists()) {
+                   return response()->json(['success' => false, 'message' => 'Ya tiene firma del Jefe.'], 422);
+                }
+                $rol_aprobacion = 'Jefe Inmediato';
+                $paso = 1;
+
+            } else {
+               return response()->json(['success' => false, 'message' => 'No tienes permisos.'], 403);
+            }
 
             $solicitud->aprobaciones()->create([
                 'user_id'    => $user->id,
@@ -400,8 +403,24 @@ public function procesar(Request $request, $id)
                 'paso_orden' => $paso,
             ]);
 
+            //Asignar el ID del usuario que aprueba (para tener registro del último aprobador)
+            $solicitud->aprobado_por = $user->id;
+
+            //Si es el paso 2 (GTH), guardamos la fecha de aprobación final
+           if ($paso == 2) {
+              $solicitud->fecha_aprobacion = now(); // O date('Y-m-d')
+            }
+
+            //Actualizar el estado
             $solicitud->estado = ($solicitud->aprobaciones()->count() >= 2) ? 'aprobado' : 'en proceso';
             $solicitud->save();
+
+            // Si ya está aprobado, enviamos el correo
+            // En lugar de buscar al empleado, usa directamente el correo de la solicitud
+         if (!empty($solicitud->correo)) {
+             \Mail::to($solicitud->correo)
+             ->send(new \App\Mail\SolicitudActualizada($solicitud, $solicitud->estado));
+           }
             $solicitud = $solicitud->fresh();
 
             $firmaJefe = $solicitud->aprobaciones()
@@ -415,62 +434,64 @@ public function procesar(Request $request, $id)
             ->first();
 
            return response()->json([
-    'success' => true,
-    'message' => 'Firma aplicada correctamente.',
+               'success' => true,
+               'message' => 'Firma aplicada correctamente.',
 
-    'jefe_html' => $firmaJefe
-        ? '<img src="data:image/png;base64,'.base64_encode(
-            is_resource($firmaJefe->firma->imagen_path)
-                ? stream_get_contents($firmaJefe->firma->imagen_path)
-                : $firmaJefe->firma->imagen_path
-          ).'" style="max-height:70px;">'
-        : '<span style="color:#ccc;">PENDIENTE JEFE</span>',
+             'jefe_html' => $firmaJefe
+              ? '<img src="data:image/png;base64,'.base64_encode(
+                  is_resource($firmaJefe->firma->imagen_path)
+                  ? stream_get_contents($firmaJefe->firma->imagen_path)
+                  : $firmaJefe->firma->imagen_path
+                ).'" style="max-height:70px;">'
+                : '<span style="color:#ccc;">PENDIENTE JEFE</span>',
 
-    'gth_html' => $firmaGTH
-        ? '<img src="data:image/png;base64,'.base64_encode(
-            is_resource($firmaGTH->firma->imagen_path)
-                ? stream_get_contents($firmaGTH->firma->imagen_path)
-                : $firmaGTH->firma->imagen_path
-          ).'" style="max-height:70px;">'
-        : '<span style="color:#ccc;">PENDIENTE GTH</span>',
+               'gth_html' => $firmaGTH
+               ? '<img src="data:image/png;base64,'.base64_encode(
+                  is_resource($firmaGTH->firma->imagen_path)
+                  ? stream_get_contents($firmaGTH->firma->imagen_path)
+                   : $firmaGTH->firma->imagen_path
+                ).'" style="max-height:70px;">'
+                : '<span style="color:#ccc;">PENDIENTE GTH</span>',
 
-]);
+            ]);
         }
 
         // Si es rechazado
-    if ($esJefeDepto || strtolower($rolUsuario) == 'gth') {
+        if ($esJefeDepto || strtolower($rolUsuario) == 'gth') {
 
-  
+           $solicitud->observaciones = $observacionesRecibidas;
+           $solicitud->estado = 'rechazado';
+           $solicitud->aprobado_por = $user->id;
+           $solicitud->save();
 
-    $solicitud->observaciones = $observacionesRecibidas;
-    $solicitud->estado = 'rechazado';
-    $solicitud->aprobado_por = $user->id;
-    $solicitud->save();
+           // Enviamos el correo de rechazo
+            if (!empty($solicitud->correo)) {
+             \Mail::to($solicitud->correo)
+             ->send(new \App\Mail\SolicitudActualizada($solicitud, $solicitud->estado));
+           }
 
-    
-
-    return response()->json([
-        'success' => true,
-        'message' => 'Solicitud rechazada.'
-    ]);
-}
+           return response()->json([
+              'success' => true,
+              'message' => 'Solicitud rechazada.'
+            ]);
+        }
 
         return response()->json(['success' => false, 'message' => 'No tienes autoridad.'], 403);
 
     } catch (\Exception $e) {
         return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
     }
-}
+    }
 
 
- /**
+    /**
     * MÉTODO: accionar
     * ---------------------------------
     * Maneja firmas de forma más directa (flujo simplificado).
     */
 
-public function accionar(Request $request, $id)
-{
+    public function accionar(Request $request, $id)
+    {
     try {
         $solicitud = \App\Models\Solicitud::findOrFail($id);
         $user = auth()->user();
@@ -531,7 +552,30 @@ public function accionar(Request $request, $id)
     } catch (\Exception $e) {
         return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
     }
-}
+    }
+
+    /**
+    * MÉTODO: actualizar estado
+    * ---------------------------------
+    * Gestiona aprobación o rechazo de solicitudes.
+    * Controla flujo: Jefe → GTH.
+    */
+    public function actualizarEstado(Request $request, $id)
+    {
+     $solicitud = Solicitud::findOrFail($id);
+     $nuevoEstado = $request->input('estado'); // 'aprobada' o 'rechazada'
+
+      // 1. Actualizar estado
+      $solicitud->estado = $nuevoEstado;
+       $solicitud->save();
+
+       // 2. Enviar correo al solicitante
+    
+       Mail::to($solicitud->user->email)->send(new SolicitudActualizada($solicitud, $nuevoEstado));
+          return response()->json(['message' => 'Estado actualizado y correo enviado']);
+    }
+
+
 
     /**
     * MÉTODO: rectificarTipo
