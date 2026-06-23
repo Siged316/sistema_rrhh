@@ -101,9 +101,11 @@
                                 <div class="col-6 border-end">
                                     <label class="form-label fw-bold text-danger p-2">
                                         <input type="checkbox" id="seleccionarTodosEmpleados" class="form-check-input me-1">
-                                        <i class="fas fa-users me-2"></i>Evaluados (Todos)
+                                        <i class="fas fa-users me-2"></i>Todos
                                    </label>
+                                   
                                     <div class="p-2 overflow-auto" style="max-height: 400px;">
+                                        <i class="fas fa-users me-2"></i>Evaluados
                                         @foreach($soloEmpleados as $emp)
                                         <div class="form-check mb-2 item-colaborador" data-dept="{{ $emp->departamento_id }}">
                                             <input class="form-check-input check-empleado" type="checkbox" name="empleado_id[]" value="{{ $emp->id }}" id="emp_{{ $f->id }}_{{ $emp->id }}">
@@ -119,9 +121,10 @@
                                 <div class="col-6 seccion-jefes-col">
                                     <label class="form-label fw-bold text-primary p-2">
                                       <input type="checkbox" id="seleccionarTodosJefes" class="form-check-input me-1">
-                                      <i class="fas fa-user-tie me-2"></i>Jefe Evaluador (Todos)
+                                      <i class="fas fa-user-tie me-2"></i>Todos
                                    </label>
                                     <div class="p-2 overflow-auto" style="max-height: 400px;">
+                                         <i class="fas fa-user-tie me-2"></i>Jefes Evaluadores
                                         @foreach($todosLosJefes as $j)
                                         <div class="border rounded p-2 mb-2 item-jefe" data-dept="{{ $j->departamento_id }}">
     
