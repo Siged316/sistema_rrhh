@@ -71,13 +71,15 @@
                           </select>
                        </div>
 
-                       <div class="col-md-5">
+                        <div class="col-md-5">
                           <label class="form-label small fw-bold text-uppercase">2. Colaborador</label>
-                           <select name="empleado_id" id="select_empleado" class="form-select border-primary" required>
+                          <select name="empleado_id" id="select_empleado" class="form-select border-primary" required>
                               <option value="">-- Seleccione Colaborador --</option>
                               {{-- Aquí tu JS debe llenar las opciones --}}
                           </select>
                        </div>
+
+
 
                        <div class="col-md-3 d-flex align-items-end">
                           <button type="submit" class="btn btn-primary w-100 fw-bold">
@@ -328,7 +330,24 @@
 @include('horas_extras.horas')
 
 <script>
+
 document.addEventListener('DOMContentLoaded', function() {
+    $(document).ready(function() {
+   
+      $('#select_depto').select2({ 
+          placeholder: "Seleccione...", 
+          allowClear: true, 
+           width: '100%', 
+           minimumResultsForSearch: 0 
+        });
+
+        $('#select_empleado').select2({ 
+          placeholder: "Escribe para buscar...", 
+          allowClear: true, 
+           width: '100%', 
+           minimumResultsForSearch: 0 
+        });
+    });
     // 1. Auto-cerrar alertas
     document.querySelectorAll('.auto-close').forEach(alert => {
         setTimeout(() => { new bootstrap.Alert(alert).close(); }, 5000);
@@ -362,31 +381,47 @@ document.addEventListener('DOMContentLoaded', function() {
        }
     
     }
-
-    function cargarEmpleados(deptoId, seleccionarId = null) {
-        empleadoSelect.innerHTML = '<option value="">-- Seleccione Colaborador --</option>';
-        if (deptoId) {
-            const depto = data.find(d => d.id == deptoId);
-            if (depto && depto.empleados) {
-                depto.empleados.forEach(emp => {
-                    const option = new Option((emp.nombre + ' ' + (emp.apellido || '')).toUpperCase(), emp.id);
-                    if (seleccionarId && emp.id == seleccionarId) option.selected = true;
-                    empleadoSelect.add(option);
-                });
+    
+   function cargarEmpleados(deptoId, seleccionarId = null) {
+      const $selectEmp = $('#select_empleado');
+    
+      // 1. Limpiamos las opciones usando jQuery
+       // MANTENEMOS la primera opción (la vacía) y borramos solo el resto
+      $selectEmp.find('option:not(:first)').remove();
+    
+       if (deptoId) {
+          const depto = data.find(d => d.id == deptoId);
+           if (depto && depto.empleados) {
+              depto.empleados.forEach(emp => {
+                  const nombre = (emp.nombre + ' ' + (emp.apellido || '')).toUpperCase();
+                  const newOption = new Option(nombre, emp.id, false, (seleccionarId == emp.id));
+                  $selectEmp.append(newOption);
+               });
             }
         }
+    
+       // 2. ¡ESTO ES LO MÁS IMPORTANTE!
+      // Esta línea obliga a Select2 a reconstruir su buscador interno con los nuevos datos
+      $selectEmp.trigger('change.select2');
     }
 
-    if (deptoSelect) {
-        deptoSelect.addEventListener('change', function() {
+   if (deptoSelect) {
+        // Usamos jQuery para escuchar el cambio, así es más fácil disparar el trigger
+        $('#select_depto').on('change', function() {
+            const $empSelect = $('#select_empleado');
+            
             if (!this.value) {
-                empleadoSelect.innerHTML = '<option value="">-- Seleccione Colaborador --</option>';
+                // Limpiamos usando jQuery y disparando el trigger
+                $empSelect.empty().append('<option value="">-- Seleccione Colaborador --</option>');
+                $empSelect.trigger('change.select2'); 
                 return;
             }
+            
+            // Cargamos los empleados (que ya tiene el trigger dentro)
             cargarEmpleados(this.value);
         });
 
-        // Solo carga empleados al inicio si realmente hay un empleado_id en la URL (búsqueda activa)
+        // Carga inicial
         if (deptoSelect.value && empleadoSeleccionadoId) {
             cargarEmpleados(deptoSelect.value, empleadoSeleccionadoId);
         }
@@ -425,6 +460,10 @@ if (window.location.search.length > 0) {
         window.location.pathname
     );
 }
+
+//Buscador 
+// Usamos el selector por ID que definiste: #select_empleado
+
 </script>
 
 @endsection
