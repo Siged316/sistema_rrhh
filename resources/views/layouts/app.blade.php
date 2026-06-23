@@ -261,7 +261,7 @@
                         <a href="{{ route('solicitudes.index') }}"
                            class="submenu-item">
 
-                            Solicitudes
+                            Solicitudes de Permisos
                         </a>
 
                         <a href="{{ route('horas_extras.gestion') }}"
