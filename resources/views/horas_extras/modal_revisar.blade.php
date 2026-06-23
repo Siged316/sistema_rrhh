@@ -151,7 +151,7 @@
                         <div class="row mt-3 mb-2" style="font-size: 13px; font-family: Arial, sans-serif;">
                             
                            <table class="table table-bordered border-dark text-center small mb-2">
-                                <thead class="bg-light">
+                                <thead>
                                     <tr style="font-size:10px;">
                                         <th>FECHA</th>
                                         <th>ACTIVIDAD REALIZADA</th>
