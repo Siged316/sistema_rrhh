@@ -5,6 +5,7 @@ namespace App\Http\Controllers; //Define la ubicación lógica del controlador d
 //Importación de clases (use)
 use App\Models\Role;              // Modelo Eloquent que representa la tabla roles
 use Illuminate\Http\Request;      // Clase para manejar solicitudes HTTP
+use Illuminate\Database\QueryException; //Validación
 
 //Clase RoleController
 class RoleController extends Controller
@@ -149,12 +150,19 @@ class RoleController extends Controller
         // Buscar el rol por ID
         $rol = Role::findOrFail($id);
 
-        // Eliminar el rol de la base de datos
-        $rol->delete();
+        try {
+          // Eliminar el rol de la base de datos
+          $rol->delete();
 
-        // Redirección con mensaje de confirmación
-        return redirect()
+          // Redirección con mensaje de confirmación
+           return redirect()
             ->route('roles.index')
             ->with('success', 'Rol eliminado correctamente');
+        } catch (QueryException $e) {
+
+          return redirect()
+            ->route('roles.index')
+            ->with('error', 'No se puede eliminar el rol porque está asignado a uno o más usuarios.');
+       }
     }
 }
