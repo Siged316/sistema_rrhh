@@ -354,7 +354,7 @@ window.procesarSolicitud = function(id, estado) {
             if (elGth) elGth.innerHTML = data.gth_html;
 
             // 2. Ocultar botones de acción en el modal
-            const contBotones = document.getElementById('contenedor-botones');
+            const contBotones = document.getElementById('contenedor-botones-' + id);
             if (contBotones) contBotones.style.display = 'none';
 
             // 3. Notificación (SweetAlert no cierra el modal por sí solo)
