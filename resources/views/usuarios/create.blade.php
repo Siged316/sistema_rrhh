@@ -25,12 +25,12 @@
             </div>
 
             <div class="mb-3">
-                <label class="form-label fw-bold text-secondary small">NOMBRE DE USUARIO (SISTEMA)</label>
+                <label class="form-label fw-bold text-secondary small">NOMBRE DE USUARIO</label>
                 <input type="text" name="usuario" class="form-control border-2" placeholder="Ej: jlopez" required>
             </div>
 
             <div class="mb-3">
-                <label class="form-label fw-bold text-secondary small">CORREO INSTITUCIONAL (ASIGNADO POR TI)</label>
+                <label class="form-label fw-bold text-secondary small">CORREO INSTITUCIONAL</label>
                 <div class="input-group shadow-sm">
                     <span class="input-group-text border-2 bg-light">
                         <i class="fa-solid fa-envelope text-primary"></i>
