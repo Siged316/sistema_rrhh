@@ -77,6 +77,29 @@
           </div>
        </div>
 
+        {{-- FILA: SOLICITADO A --}}
+       <div style="display: table; width: 100%; margin-bottom: 12px;">
+          <div style="display: table-cell; font-weight: bold; width: 140px; vertical-align: bottom;">
+              Solicitado a:
+          </div>
+    
+          <div style="display: table-cell; border-bottom: 1px solid black; vertical-align: bottom; padding-left: 5px;">
+              {{ strtoupper($solicitadoA) }}
+           </div>
+       </div>
+
+        {{-- FILA: CARGO --}}
+
+      <div style="display: table; width: 100%; margin-bottom: 12px;">
+           <div style="display: table-cell; font-weight: bold; width: 140px; vertical-align: bottom;">
+              Cargo del autorizador:
+           </div>
+  
+           <div style="display: table-cell; border-bottom: 1px solid black; vertical-align: bottom; padding-left: 5px;">
+              {{ $cargoAutorizador ?? 'No definido' }}
+          </div>
+       </div>
+
     </div>
 
     <br>

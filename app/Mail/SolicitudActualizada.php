@@ -34,8 +34,23 @@ public function attachments(): array
         ->where('apellido', 'LIKE', '%' . end($partes) . '%')
         ->first();
 
-    // 2. 🔥 AQUÍ PEGAS TU BLOQUE
+    // 2. 
     $totalDerechoHistorico = 0;
+
+    $solicitadoA = null;
+    $cargoAutorizador = null;
+
+    if ($empleado && $empleado->departamento_id) {
+        $departamento = \App\Models\Departamento::find($empleado->departamento_id);
+        
+        if ($departamento && $departamento->jefe_empleado_id) {
+            $jefe = \App\Models\Empleado::find($departamento->jefe_empleado_id);
+            if ($jefe) {
+                $solicitadoA = $jefe->nombre . ' ' . $jefe->apellido;
+                $cargoAutorizador = $jefe->cargo;
+            }
+        }
+    }
 
     if ($empleado) {
 
@@ -111,6 +126,9 @@ public function attachments(): array
       'tipo' => $tipo,
       'esOtros' => $esOtros,
      'aprobaciones' => $aprobaciones,
+     'solicitadoA' => $solicitadoA,         
+     'cargoAutorizador' => $cargoAutorizador,
+
     ]);
 
     return [
