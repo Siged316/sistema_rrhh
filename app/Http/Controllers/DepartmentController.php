@@ -114,12 +114,22 @@ class DepartmentController extends Controller
      */
     public function destroy($id)
     {
-        // Busca y elimina el departamento
-        Departamento::findOrFail($id)->delete();
+      // 1. Buscamos el departamento
+      $departamento = Departamento::findOrFail($id);
 
-        // Redirecciona con mensaje de éxito
-        return redirect()
-            ->route('departamentos.index')
-            ->with('success', 'Departamento eliminado correctamente');
+      // 2. Verificamos si tiene empleados relacionados (usando la relación definida en tu modelo)
+      // Asumiendo que en tu modelo Departamento tienes: public function empleados() { return $this->hasMany(Empleado::class); }
+      if ($departamento->empleados()->exists()) {
+        
+          // 3. Si tiene empleados, redirigimos con un mensaje de error
+         return redirect()->route('departamentos.index')
+            ->with('error', 'No se puede eliminar el departamento "' . $departamento->nombre . '" porque tiene empleados asignados.');
+        }
+
+        // 4. Si no tiene empleados, procedemos a eliminar
+        $departamento->delete();
+
+        return redirect()->route('departamentos.index')
+        ->with('success', 'Departamento eliminado con éxito.');
     }
 }

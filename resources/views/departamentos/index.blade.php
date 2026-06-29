@@ -340,6 +340,21 @@
 
 document.addEventListener('DOMContentLoaded', function () {
 
+   /* =====================================================
+   ALERTA ERROR (Integridad referencial)
+   ===================================================== */
+   @if(session('error'))
+     Swal.fire({
+         title: '¡Acción no permitida!',
+         text: "{{ session('error') }}",
+         icon: 'error',
+         confirmButtonColor: '#dc3545',
+         customClass: {
+             popup: 'rounded-4 shadow-lg'
+            }
+        });
+   @endif
+
     /* =====================================================
        ALERTA DE ÉXITO
     ===================================================== */
@@ -363,6 +378,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     @endif
 
+    
     /* =====================================================
        ALERTA WARNING Y REABRIR MODAL
     ===================================================== */
