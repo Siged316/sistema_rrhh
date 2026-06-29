@@ -43,6 +43,18 @@
                     <h3 class="fw-bold">Iniciar Sesión</h3>
                 </div>
 
+                {{-- BLOQUE PARA MOSTRAR ERRORES --}}
+                @if ($errors->any())
+                   <div class="alert alert-danger alert-dismissible fade show shadow-sm" role="alert">
+                      <ul class="mb-0 ps-3">
+                          @foreach ($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                          @endforeach
+                       </ul>
+                       <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                  </div>
+                @endif
+
                 {{-- Formulario de autenticación --}}
                 <form method="POST" action="{{ route('login.post') }}">
 
@@ -124,5 +136,26 @@
     });
 </script>
 
+<script>
+    // Esperar a que el documento cargue
+    document.addEventListener("DOMContentLoaded", function() {
+        // Buscar las alertas con clase 'alert'
+        const alert = document.querySelector('.alert');
+        
+        if (alert) {
+            // Esperar 4 segundos (4000 milisegundos)
+            setTimeout(function() {
+                // Hacer un efecto de desvanecimiento suave (fade out)
+                alert.style.transition = "opacity 0.5s ease";
+                alert.style.opacity = "0";
+                
+                // Eliminar el elemento del DOM después de la transición
+                setTimeout(function() {
+                    alert.remove();
+                }, 500);
+            }, 4000); 
+        }
+    });
+</script>
 {{-- Fin de la sección de contenido --}}
 @endsection

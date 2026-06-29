@@ -123,4 +123,6 @@ class User extends Authenticatable
         // Esto usa el método hasRole que ya tienes en el modelo
         return $this->hasRole('Administrador') || $this->hasRole('admin');
     }
+
+    
 } // Fin de la clase User

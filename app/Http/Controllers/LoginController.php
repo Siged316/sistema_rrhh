@@ -23,7 +23,7 @@ class LoginController extends Controller
     }
 
     // Procesa el intento de inicio de sesión
-public function login(Request $request) {
+    public function login(Request $request) {
     $request->validate([
         'usuario'  => 'required|string',
         'password' => 'required|string',
@@ -36,6 +36,13 @@ public function login(Request $request) {
             ->orWhere('email', $login)
             ->first();
 
+            // 1. Validar si el usuario existe
+    if (!$user) {
+        return back()->withErrors(['usuario' => 'El usuario o correo electrónico no existe.'])->onlyInput('usuario');
+    }
+
+
+
     // Verificamos credenciales ANTES de iniciar sesión
     if ($user && \Illuminate\Support\Facades\Hash::check($password, $user->password)) {
 
@@ -44,9 +51,9 @@ public function login(Request $request) {
             return back()->withErrors(['usuario' => 'Tu cuenta está inactiva.']);
         }
 
-        // 2. Validar relación y estado del EMPLEADO
+       
        // 2. Validar relación y estado del EMPLEADO (Solo si NO es administrador)
-       if ($user->role_id != 1) { // 1 es el ID del rol Administrador
+       if (!$user->isAdmin()) {
            if (!$user->empleado || $user->empleado->estado !== 'activo' || $user->empleado->fecha_baja !== null) {
               return back()->withErrors(['usuario' => 'Acceso deshabilitado.']);
             }
@@ -62,14 +69,15 @@ public function login(Request $request) {
                 ->with('info', 'Debes actualizar tu contraseña temporal.');
         }
 
+        
         return redirect()->intended('/dashboard');
-
     }
+
 
     return back()->withErrors([
         'usuario' => 'El usuario o la contraseña son incorrectos.'
     ])->onlyInput('usuario');
-}
+    }
 
 
     // Cierra la sesión del usuario
