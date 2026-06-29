@@ -12,15 +12,15 @@
                 <div class="card-body p-4">
                     <form id="formFirma" action="{{ route('firmas.store') }}" method="POST" enctype="multipart/form-data">
                         @csrf
-                        <div class="mb-4">
-                            <label class="form-label fw-bold">Empleado</label>
-                            <select name="empleado_id" class="form-select form-select-lg border-2 shadow-none" required>
-                                <option value="" selected disabled>Seleccione un empleado...</option>
-                                @foreach($empleados as $emp)
-                                    <option value="{{ $emp->id }}">{{ $emp->nombre }} {{ $emp->apellido }}</option>
-                                @endforeach
-                            </select>
-                        </div>
+                       <div class="mb-4">
+                          <label class="form-label fw-bold">Empleado</label>
+                          <select name="empleado_id" id="select_empleado" class="form-select form-select-lg border-2 shadow-none" required>
+                              <option value="" selected disabled>Seleccione un empleado...</option>
+                                  @foreach($empleados as $emp)
+                              <option value="{{ $emp->id }}">{{ $emp->nombre }} {{ $emp->apellido }}</option>
+                              @endforeach
+                          </select>
+                       </div>
 
                         <div class="mb-4">
                             <label class="form-label fw-bold text-dark">Imagen de la Firma</label>
@@ -222,71 +222,73 @@
 </script>
 
 <script>
-   function prepararModificacion(empleadoId) {
-        console.log("Editando empleado:", empleadoId); // Para ver si el click funciona
+  // Esta es la forma más segura de inicializarlo
+    document.addEventListener('DOMContentLoaded', function() {
+        if (typeof jQuery !== 'undefined' && $.fn.select2) {
+            
+            $('#select_empleado').select2({ 
+                placeholder: "Escribe para buscar...", 
+                allowClear: true, 
+                width: '100%',
+                theme: "bootstrap-5",
+                minimumResultsForSearch: 0 
+            });
+            
+            console.log("Select2 inicializado correctamente");
+        } else {
+            console.error("jQuery o Select2 no están cargados");
+        }
+    });
+  function prepararModificacion(empleadoId) {
+     console.log("Editando empleado:", empleadoId);
 
-        // 1. Cambiar Título
-       const titulo = document.getElementById('tituloForm');
-       const contenedorTitulo = titulo.parentElement; // El div que contiene el h5
+      // 1. Cambiar Título
+      const titulo = document.getElementById('tituloForm');
+      const contenedorTitulo = titulo.parentElement;
+      titulo.innerHTML = '<i class="fas fa-edit me-2"></i>Editar Firma';
+      contenedorTitulo.style.backgroundColor = '#054084'; 
+      contenedorTitulo.style.color = '#fff';
     
-        titulo.innerHTML = '<i class="fas fa-edit me-2"></i>Editar Firma';
+     // 2. SELECCIONAR EMPLEADO EN SELECT2 (Forma correcta)
+     // Usamos el ID del select y disparamos el evento 'change'
+     $('#select_empleado').val(empleadoId).trigger('change');
+    
+     // 3. Cambiar botón
+     const btn = document.getElementById('btnSubmit');
+     btn.innerHTML = '<i class="fa-solid fa-rotate me-2"></i>Actualizar Firma';
+     btn.style.backgroundColor = '#054084';
+     btn.style.color = '#fff';
+     btn.style.borderColor = '#054084';
 
-        // Aplicamos el color solicitado al contenedor
-       contenedorTitulo.style.backgroundColor = '#054084'; 
-       contenedorTitulo.style.color = '#fff';
-        
-        // 2. Seleccionar empleado
-        const select = document.querySelector('select[name="empleado_id"]');
-        select.value = empleadoId;
-        
-        // 3. Cambiar botón de Guardar a Actualizar
-        const btn = document.getElementById('btnSubmit');
-        document.getElementById('textoBtn').innerText = 'Actualizar Firma';
-        btn.innerHTML = '<i class="fa-solid fa-rotate me-2"></i>Actualizar Firma';
-        btn.style.backgroundColor = '#054084'; // Color solicitado para edición
-        btn.style.color = '#fff'; // Aseguramos que el texto sea blanco
-        btn.style.borderColor = '#054084';
-
-        // 4. MOSTRAR BOTÓN CANCELAR (Fuerza absoluta)
-       document.getElementById('btnCancelar').style.display = 'inline-block';
-        
-        // Aplicamos el estilo directamente al elemento
-        btnCancel.style.display = 'block'; 
-        
-        console.log("Botón cancelar ahora debería ser visible:", btnCancel.style.display);
+     // 4. MOSTRAR BOTÓN CANCELAR
+     const btnCancelar = document.getElementById('btnCancelar');
+     btnCancelar.style.display = 'inline-block'; 
     }
 
-    function resetFormulario() {
-        // 1. Resetear título
-        const titulo = document.getElementById('tituloForm');
-        const contenedorTitulo = titulo.parentElement;
-        
-        titulo.innerHTML = '<i class="fas fa-pen-nib me-2"></i>Registrar Nueva Firma';
-        // Limpiamos los estilos para que vuelva al color original de Bootstrap
-        contenedorTitulo.style.backgroundColor = ''; 
-        contenedorTitulo.style.color = '';
+   function resetFormulario() {
+     // 1. Resetear título
+     const titulo = document.getElementById('tituloForm');
+     const contenedorTitulo = titulo.parentElement;
+     titulo.innerHTML = '<i class="fas fa-pen-nib me-2"></i>Registrar Nueva Firma';
+     contenedorTitulo.style.backgroundColor = ''; 
+     contenedorTitulo.style.color = '';
 
-        // 2. Resetear botón principal
-        const btn = document.getElementById('btnSubmit');
-        btn.innerHTML = '<i class="fas fa-save me-2"></i>Guardar Firma';
-        
-        // Esto remueve el estilo inline para que retome la clase 'btn-primary' de Bootstrap
-        btn.style.backgroundColor = ''; 
-        btn.style.color = '';
-        btn.style.borderColor = '';
+     // 2. Resetear botón principal
+     const btn = document.getElementById('btnSubmit');
+     btn.innerHTML = '<i class="fas fa-save me-2"></i>Guardar Firma';
+     btn.style.backgroundColor = ''; 
+     btn.style.color = '';
+     btn.style.borderColor = '';
 
-        // 3. OCULTAR BOTÓN CANCELAR (Forzado)
-        // OCULTAR CANCELAR: forzamos el estilo a none
-        document.getElementById('btnCancelar').style.display = 'none';
+     // 3. Ocultar cancelar
+     document.getElementById('btnCancelar').style.display = 'none';
 
-        // 4. Resetear formulario
-        document.getElementById('searchInput').value = '';
-        document.querySelectorAll('.firma-row').forEach(row => row.style.display = '');
-        
-        const form = document.getElementById('formFirma');
-        form.reset();
-        form.querySelector('select[name="empleado_id"]').value = "";
-    }
+     // 4. LIMPIAR SELECT2 (Forma correcta)
+     $('#select_empleado').val(null).trigger('change');
+    
+     // 5. Resetear formulario
+     document.getElementById('formFirma').reset();
+   }
 
     // Buscador (el que ya tenías)
     document.getElementById('searchInput').addEventListener('keyup', function() {
@@ -313,5 +315,10 @@
 
     /* 4. Si el header o el navbar tienen z-index, asegúrate de que sea menor al del dropdown */
     header, .navbar { z-index: 1000 !important;}
+
+  .select2-container--bootstrap-5 .select2-dropdown .select2-search .select2-search__field {
+    display: block !important;
+    padding: 0.375rem 0.75rem !important; /* Ajuste para que se vea como input de bootstrap */
+}
 </style>
 @endsection

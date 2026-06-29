@@ -461,8 +461,7 @@ if (window.location.search.length > 0) {
     );
 }
 
-//Buscador 
-// Usamos el selector por ID que definiste: #select_empleado
+
 
 </script>
 
