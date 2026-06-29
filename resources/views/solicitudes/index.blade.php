@@ -67,62 +67,72 @@
                             <th class="bg-primary text-white">Acciones</th>
                         </tr>
                     </thead>
-        <tbody>
+                    <tbody>
                        
                          @forelse(isset($solicitudes) ? $solicitudes : [] as $solicitud)
                         
-                            @php
-                                $aprobaciones = $solicitud->aprobaciones ?? collect();
-                                $estadoDB = strtolower($solicitud->estado);
+                           @php
+                           // 1. Inicialización y carga de objetos principales
+                           $aprobaciones = $solicitud->aprobaciones ?? collect();
+                           $estadoDB = strtolower($solicitud->estado);
+                           $user = auth()->user();
+    
+                          // 2. Buscamos el depto
+                           $deptoObj = \App\Models\Departamento::where('nombre', $solicitud->departamento)->first();
+    
+                          // 3. Definimos al Jefe del Departamento (Lo que faltaba)
+                          $jefeDelDepto = $deptoObj ? \App\Models\Empleado::find($deptoObj->jefe_empleado_id) : null;
+    
+                          // 4. Lógica de quién es jefe (usando comparativa de correos)
+                          $esSolicitudDeJefe = false;
+                         if ($jefeDelDepto && !empty($solicitud->correo)) {
+                              $esSolicitudDeJefe = (strtolower(trim($solicitud->correo)) == strtolower(trim($jefeDelDepto->email)));
+                            }
+    
+                          // 5. Lógica para saber si el usuario logueado es el jefe
+                          $esJefeDeEstaSol = false;
+                          if ($deptoObj && isset($user->empleado)) {
+                                $esJefeDeEstaSol = ($deptoObj->jefe_empleado_id == $user->empleado->id);
+                            }
 
-                                $tieneFirmaJefe = $aprobaciones->where('paso_orden', 1)->isNotEmpty();
-                                $tieneFirmaGTH = $aprobaciones->where('paso_orden', 2)->isNotEmpty();
+                           // 6. Variables de firma
+                           $tieneFirmaJefe = $aprobaciones->where('paso_orden', 1)->isNotEmpty();
+                           $tieneFirmaGTH = $aprobaciones->where('paso_orden', 2)->isNotEmpty();
+                            $tieneFirmaDE = $aprobaciones->where('paso_orden', 3)->isNotEmpty();
 
-                                if ($estadoDB == 'rechazado') {
-                                    $color = 'danger'; 
-                                    $texto = 'RECHAZADO'; 
-                                    $icono = 'fa-times-circle';
-                                } elseif ($tieneFirmaGTH) {
-                                    $color = 'success'; 
-                                    $texto = 'COMPLETADO'; 
-                                    $icono = 'fa-check-double';
-                                } elseif ($tieneFirmaJefe || $estadoDB == 'en proceso') {
-                                    $color = 'info'; 
-                                    $texto = 'GTH'; 
-                                    $icono = 'fa-spinner fa-spin';
-                                } else {
-                                    $color = 'warning'; 
-                                    $texto = 'JEFE'; 
-                                    $icono = 'fa-clock';
+                           // 7. Lógica de Colores
+                           if ($estadoDB == 'rechazado') {
+                              $color = 'danger'; $texto = 'RECHAZADO'; $icono = 'fa-times-circle';
+                            } elseif ($tieneFirmaDE) {
+                              $color = 'success'; $texto = 'APROBADO'; $icono = 'fa-check-double';
+                            } elseif ($tieneFirmaGTH) {
+                              $color = 'primary'; $texto = 'EN DIR. EJEC.'; $icono = 'fa-building';
+                            } elseif ($tieneFirmaJefe || $estadoDB == 'en proceso') {
+                               $color = 'info'; $texto = 'GTH'; $icono = 'fa-spinner fa-spin';
+                            } else {
+                              $color = 'warning'; $texto = 'JEFE'; $icono = 'fa-clock';
+                            }
+
+                           // 8. Lógica de Turnos
+                          $esMiTurnoParaFirmar = false;
+                          $rolNombre = auth()->user()->rol->nombre ?? 'Sin Rol';
+                          $rolNombreLower = strtolower(trim($user->rol->nombre ?? ''));
+                          $esDireccion = (str_contains($rolNombreLower, 'dirección') || str_contains($rolNombreLower, 'direccion') || $rolNombreLower === 'administrador');
+
+                          if ($esSolicitudDeJefe) {
+                             if ($esDireccion && !$tieneFirmaDE && $estadoDB !== 'rechazado') {
+                                  $esMiTurnoParaFirmar = true;
                                 }
-
-                                // Determinar si el usuario en sesión es el jefe asignado a esta solicitud
-                                $user = auth()->user();
-                                $empleadoId = $user->empleado->id ?? null;
-                                $rolNombre = $user->rol->nombre ?? null;
-                                $miDepto = $user->empleado->departamento->nombre ?? '';
-
-                                $esJefeDeEstaSol = false;
-                              $departamentoSolicitud = \App\Models\Departamento::where(
-                                  'nombre',
-                                   $solicitud->departamento
-                                )->first();
-
-                                if (
-                                  $departamentoSolicitud &&
-                                  $departamentoSolicitud->jefe_empleado_id == $empleadoId
-                                ) {
-                                 $esJefeDeEstaSol = true;
+                            } else {
+                               if ($esJefeDeEstaSol && !$tieneFirmaJefe && $estadoDB !== 'rechazado') {
+                                  $esMiTurnoParaFirmar = true;
+                                } elseif ($rolNombreLower === 'gth' && $tieneFirmaJefe && !$tieneFirmaGTH && $estadoDB !== 'rechazado') {
+                                  $esMiTurnoParaFirmar = true;
+                                } elseif ($esDireccion && $tieneFirmaGTH && !$tieneFirmaDE && $estadoDB !== 'rechazado') {
+                                  $esMiTurnoParaFirmar = true;
                                 }
-
-                                // Lógica de turnos para habilitar botones
-                                $esMiTurnoParaFirmar = false;
-                                if ($esJefeDeEstaSol && !$tieneFirmaJefe && $estadoDB !== 'rechazado') {
-                                    $esMiTurnoParaFirmar = true;
-                                } elseif ($rolNombre === 'GTH' && $tieneFirmaJefe && !$tieneFirmaGTH && $estadoDB !== 'rechazado') {
-                                    $esMiTurnoParaFirmar = true;
-                                }
-                            @endphp
+                            }
+                           @endphp
                            <td class="ps-4"> 
                              <div class="fw-bold text-primary">
                                  {{-- Aquí accedes directamente al nombre que ya está en la tabla solicitudes --}} 
@@ -175,6 +185,8 @@
 
                                 {{-- Columna: Acciones --}}
                                 <td class="text-center">
+                                    <div style="background: #fff3cd; padding: 10px; border: 1px solid #ffeeba; margin: 5px 0;">
+   
                                     @if($esMiTurnoParaFirmar)
                                         <button type="button" class="btn btn-success btn-sm shadow-sm" onclick="verDetalles({{ $solicitud->id }})">
                                             <i class="fas fa-file-signature me-1"></i> <b>GESTIONAR</b>

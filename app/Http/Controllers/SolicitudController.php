@@ -368,6 +368,9 @@ class SolicitudController extends Controller
         $estado = $request->input('estado', 'aprobado');
         $observacionesRecibidas = $request->input('observaciones', '');
 
+        // Identificar si quien solicitó es Jefe de ese departamento
+    $esSolicitudDeJefe = ($solicitud->empleado_id == $solicitud->departamento->jefe_empleado_id);
+
         $esJefeDepto = \App\Models\Departamento::where('id', $deptoUser)
             ->where('jefe_empleado_id', $empleado->id)
             ->exists();
@@ -392,7 +395,19 @@ class SolicitudController extends Controller
                $rol_aprobacion = 'GTH';
                $paso = 2;
 
-            } elseif ($esJefeDepto) {
+            } 
+            if ($esSolicitudDeJefe) {
+            // El Jefe NO puede firmar su propia solicitud
+            if (strtolower($rolUsuario) == 'jefe') {
+                return response()->json(['success' => false, 'message' => 'No puedes aprobar tu propia solicitud.'], 403);
+            }
+
+            // Dirección Ejecutiva actúa como el "Primer Paso" (reemplazando al Jefe)
+            if (strtolower($rolUsuario) == 'direccion_ejecutiva') {
+                $rol_aprobacion = 'Dirección Ejecutiva';
+                $paso = 1; // Toma el lugar del paso 1
+            }
+        }elseif ($esJefeDepto) {
               // Lógica de Jefe
               if ($solicitud->aprobaciones()->where('rol_nombre','Jefe Inmediato')->exists()) {
                    return response()->json(['success' => false, 'message' => 'Ya tiene firma del Jefe.'], 422);
