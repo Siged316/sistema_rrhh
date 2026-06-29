@@ -185,7 +185,6 @@
 
                                 {{-- Columna: Acciones --}}
                                 <td class="text-center">
-                                    <div style="background: #fff3cd; padding: 10px; border: 1px solid #ffeeba; margin: 5px 0;">
    
                                     @if($esMiTurnoParaFirmar)
                                         <button type="button" class="btn btn-success btn-sm shadow-sm" onclick="verDetalles({{ $solicitud->id }})">
