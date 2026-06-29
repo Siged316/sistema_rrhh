@@ -164,7 +164,7 @@
                                                 onclick="abrirEditar(
                                                     '{{ $u->id }}',
                                                     '{{ $u->usuario }}',
-                                                    '{{ $u->empleado->nombre }} {{ $u->empleado->apellido }}',
+                                                    '{{ $u->empleado?->nombre ?? 'Administrador' }} {{ $u->empleado?->apellido ?? 'Global' }}',
                                                     '{{ $u->role_id }}',
                                                     '{{ $u->estado }}'
                                                 )"
